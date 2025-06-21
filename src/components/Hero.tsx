@@ -1,6 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const Hero = () => {
   return (
@@ -25,9 +26,11 @@ export const Hero = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4 h-auto">
-            Start Free Trial
-          </Button>
+          <Link to="/signin">
+            <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4 h-auto">
+              Start Free Trial
+            </Button>
+          </Link>
           <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 text-lg px-8 py-4 h-auto">
             Watch Demo
           </Button>
