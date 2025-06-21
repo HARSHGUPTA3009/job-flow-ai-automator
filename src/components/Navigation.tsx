@@ -2,9 +2,16 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut } from "lucide-react";
 
 export const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-gray-800">
@@ -25,16 +32,36 @@ export const Navigation = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Link to="/signin">
-              <Button variant="ghost" className="text-gray-300 hover:text-white">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/signin">
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Get Started
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                <Link to="/dashboard">
+                  <Button variant="ghost" className="text-gray-300 hover:text-white">
+                    Dashboard
+                  </Button>
+                </Link>
+                <Button 
+                  variant="outline" 
+                  className="border-gray-600 text-gray-300 hover:text-white"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button variant="ghost" className="text-gray-300 hover:text-white">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/dashboard">
+                  <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           <div className="md:hidden">
@@ -57,16 +84,36 @@ export const Navigation = () => {
             <a href="#pricing" className="block px-3 py-2 text-gray-300 hover:text-white">Pricing</a>
             <a href="#about" className="block px-3 py-2 text-gray-300 hover:text-white">About</a>
             <div className="pt-4 pb-2 space-y-2">
-              <Link to="/signin">
-                <Button variant="ghost" className="w-full text-gray-300 hover:text-white">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/signin">
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  Get Started
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/dashboard">
+                    <Button variant="ghost" className="w-full text-gray-300 hover:text-white">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-600 text-gray-300 hover:text-white"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/signin">
+                    <Button variant="ghost" className="w-full text-gray-300 hover:text-white">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link to="/dashboard">
+                    <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

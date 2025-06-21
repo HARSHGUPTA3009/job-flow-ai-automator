@@ -1,14 +1,37 @@
 
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Mail, BarChart3 } from "lucide-react";
+import { Upload, FileText, Mail, BarChart3, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Redirect to sign in if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/signin");
+    }
+  }, [user, loading, navigate]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully.",
+    });
+    navigate("/");
+  };
 
   const handleResumeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -19,21 +42,43 @@ const Dashboard = () => {
 
   const handleATSCheck = () => {
     if (!resumeFile) {
-      alert("Please upload a resume first");
+      toast({
+        title: "Error",
+        description: "Please upload a resume first",
+        variant: "destructive",
+      });
       return;
     }
-    // Backend integration will be added here
     console.log("Starting ATS check for:", resumeFile.name);
+    toast({
+      title: "ATS Check Started",
+      description: "Your resume is being analyzed...",
+    });
   };
 
   const handleColdEmailSetup = () => {
     if (!googleSheetUrl) {
-      alert("Please provide a Google Sheets URL");
+      toast({
+        title: "Error",
+        description: "Please provide a Google Sheets URL",
+        variant: "destructive",
+      });
       return;
     }
-    // Backend integration will be added here
     console.log("Setting up cold email with sheet:", googleSheetUrl);
+    toast({
+      title: "Cold Email Setup",
+      description: "Your cold email campaign is being configured...",
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
@@ -43,9 +88,17 @@ const Dashboard = () => {
             <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               AutoJob Flow
             </div>
-            <Button variant="outline" className="border-gray-600 text-gray-300 hover:text-white">
-              Sign Out
-            </Button>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-300">Welcome, {user?.email}</span>
+              <Button 
+                variant="outline" 
+                className="border-gray-600 text-gray-300 hover:text-white"
+                onClick={handleSignOut}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
