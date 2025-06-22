@@ -19,7 +19,7 @@ export const CTA = () => {
                 Start Your Free Trial
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 text-lg px-8 py-4 h-auto">
+            <Button size="lg" variant="outline" className="border-gray-600 text-black-700 hover:text-gray-900 hover:border-gray-500 text-lg px-8 py-4 h-auto">
               Schedule Demo
             </Button>
           </div>

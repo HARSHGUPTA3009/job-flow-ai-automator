@@ -1,14 +1,55 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Mail, BarChart3 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+  interface ATSResult {
+    score: number;
+    summary: string;
+    suggestions: string[];
+    detected_skills: string[];
+  }
+
+  const [atsResult, setATSResult] = useState<ATSResult | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:3001/auth/status", {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.authenticated) {
+          navigate("/signin");
+        }
+      })
+      .catch((err) => {
+        console.error("Auth check failed", err);
+        navigate("/signin");
+      });
+  }, [navigate]);
+
+  const handleSignOut = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        navigate("/signin");
+      } else {
+        console.error("Failed to logout");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   const handleResumeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -17,13 +58,27 @@ const Dashboard = () => {
     }
   };
 
-  const handleATSCheck = () => {
+  const handleATSCheck = async () => {
     if (!resumeFile) {
       alert("Please upload a resume first");
       return;
     }
-    // Backend integration will be added here
-    console.log("Starting ATS check for:", resumeFile.name);
+
+    const formData = new FormData();
+    formData.append("file", resumeFile);
+
+    try {
+      const res = await fetch("https://harshn8nautomaker.app.n8n.cloud/webhook-test/ats-checker", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      setATSResult(data);
+    } catch (error) {
+      console.error("ATS check failed:", error);
+      alert("Something went wrong during ATS check.");
+    }
   };
 
   const handleColdEmailSetup = () => {
@@ -31,7 +86,6 @@ const Dashboard = () => {
       alert("Please provide a Google Sheets URL");
       return;
     }
-    // Backend integration will be added here
     console.log("Setting up cold email with sheet:", googleSheetUrl);
   };
 
@@ -43,7 +97,11 @@ const Dashboard = () => {
             <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
               AutoJob Flow
             </div>
-            <Button variant="outline" className="border-gray-600 text-gray-300 hover:text-white">
+            <Button
+              variant="outline"
+              className="border-gray-600 text-black-300 hover:text-black-900 hover:bg-gray-800"
+              onClick={handleSignOut}
+            >
               Sign Out
             </Button>
           </div>
@@ -57,7 +115,6 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* ATS Check Section */}
           <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center space-x-2">
@@ -89,7 +146,7 @@ const Dashboard = () => {
                   </label>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={handleATSCheck}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 disabled={!resumeFile}
@@ -97,10 +154,32 @@ const Dashboard = () => {
                 <FileText className="mr-2 h-4 w-4" />
                 Run ATS Check
               </Button>
+              {atsResult && (
+                <div className="mt-8 p-6 bg-gray-800 rounded-xl border border-gray-700 text-white">
+                  <h2 className="text-xl font-semibold text-purple-400 mb-2">ATS Score: {atsResult.score}/100</h2>
+                  <p className="mb-2 text-gray-300">{atsResult.summary}</p>
+                  <h3 className="font-medium text-white mb-1">Suggestions:</h3>
+                  <ul className="list-disc pl-5 text-sm text-gray-400 space-y-1">
+                    {atsResult.suggestions.map((s: string, i: number) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                  <h3 className="font-medium text-white mt-4 mb-1">Detected Skills:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {atsResult.detected_skills.map((skill: string, i: number) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 bg-purple-700/30 text-sm rounded-full border border-purple-500"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Cold Email Section */}
           <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center space-x-2">
@@ -132,7 +211,7 @@ const Dashboard = () => {
                   <li>• Job Title (optional)</li>
                 </ul>
               </div>
-              <Button 
+              <Button
                 onClick={handleColdEmailSetup}
                 className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
                 disabled={!googleSheetUrl}

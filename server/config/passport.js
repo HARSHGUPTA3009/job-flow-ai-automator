@@ -1,35 +1,33 @@
-
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+const users = new Map(); // 🧠 TEMP in-memory user store
 
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/auth/google/callback"
+  callbackURL: `${process.env.API_URL}/auth/google/callback`
 }, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Here you would save the user to your database
-    // For now, we'll just return the profile
-    const user = {
-      googleId: profile.id,
-      email: profile.emails[0].value,
-      name: profile.displayName,
-      picture: profile.photos[0].value,
-      accessToken: accessToken
-    };
-    
-    return done(null, user);
-  } catch (error) {
-    return done(error, null);
-  }
+  const user = {
+    googleId: profile.id,
+    name: profile.displayName,
+    email: profile.emails[0].value,
+    picture: profile.photos[0].value
+  };
+
+  users.set(user.googleId, user); // ✅ store temporarily
+  return done(null, user);
 }));
 
+// ✅ only store user ID in session
 passport.serializeUser((user, done) => {
-  done(null, user);
+  done(null, user.googleId);
 });
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
+// ✅ retrieve full user from memory
+passport.deserializeUser((id, done) => {
+  const user = users.get(id);
+  done(null, user || null);
 });
 
 module.exports = passport;

@@ -30,7 +30,7 @@ export const Navigation = () => {
                 Sign In
               </Button>
             </Link>
-            <Link to="/signin">
+            <Link to="/dashboard">
               <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
                 Get Started
               </Button>
@@ -58,7 +58,7 @@ export const Navigation = () => {
             <a href="#about" className="block px-3 py-2 text-gray-300 hover:text-white">About</a>
             <div className="pt-4 pb-2 space-y-2">
               <Link to="/signin">
-                <Button variant="ghost" className="w-full text-gray-300 hover:text-white">
+                <Button variant="ghost" className="w-full text-black-900 hover:text-black-700">
                   Sign In
                 </Button>
               </Link>

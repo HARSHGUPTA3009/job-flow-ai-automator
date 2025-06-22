@@ -31,7 +31,7 @@ export const Hero = () => {
               Start Free Trial
             </Button>
           </Link>
-          <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 text-lg px-8 py-4 h-auto">
+          <Button size="lg" variant="outline" className="border-gray-600 text-black-300 hover:text-black hover:border-gray-500 hover:bg-white-400 text-lg px-8 py-4 h-auto">
             Watch Demo
           </Button>
         </div>

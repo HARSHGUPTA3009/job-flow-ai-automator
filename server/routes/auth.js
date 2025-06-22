@@ -1,9 +1,7 @@
-
 const express = require('express');
 const passport = require('../config/passport');
 const router = express.Router();
 
-// Google OAuth routes
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );
@@ -11,28 +9,29 @@ router.get('/google',
 router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/signin' }),
   (req, res) => {
-    // Successful authentication, redirect to dashboard
+    console.log("✅ Google login success");
+    console.log("User:", req.user);
+    console.log("Session:", req.session);
+
+    // ✅ Redirect to frontend dashboard
     res.redirect(`${process.env.CLIENT_URL}/dashboard`);
   }
 );
 
-// Logout route
-router.post('/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to logout' });
-    }
-    res.json({ message: 'Logged out successfully' });
+router.get('/status', (req, res) => {
+  console.log("🔍 /auth/status checked");
+  console.log("User:", req.user);
+  res.json({
+    authenticated: req.isAuthenticated(),
+    user: req.user || null
   });
 });
 
-// Check auth status
-router.get('/status', (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json({ user: req.user, authenticated: true });
-  } else {
-    res.json({ authenticated: false });
-  }
+router.post('/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) return res.status(500).json({ error: 'Logout failed' });
+    res.json({ message: 'Logged out successfully' });
+  });
 });
 
 module.exports = router;
