@@ -10,6 +10,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
+  const [userName, setUserName] = useState("");
+  const [emailResults, setEmailResults] = useState<{ email: string; content: string }[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+
   interface ATSResult {
     score: number;
     summary: string;
@@ -27,6 +31,8 @@ const Dashboard = () => {
       .then((data) => {
         if (!data.authenticated) {
           navigate("/signin");
+        } else {
+          if (data.user?.name) setUserName(data.user.name);
         }
       })
       .catch((err) => {
@@ -58,6 +64,12 @@ const Dashboard = () => {
     }
   };
 
+  const convertToCsvUrl = (sheetUrl: string): string => {
+    const match = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!match || match.length < 2) return sheetUrl;
+    return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
+  };
+
   const handleATSCheck = async () => {
     if (!resumeFile) {
       alert("Please upload a resume first");
@@ -68,7 +80,7 @@ const Dashboard = () => {
     formData.append("file", resumeFile);
 
     try {
-      const res = await fetch("https://harshn8nautomaker.app.n8n.cloud/webhook-test/ats-checker", {
+      const res = await fetch("https://harshprojectn8n.app.n8n.cloud/webhook-test/ats-checker", {
         method: "POST",
         body: formData,
       });
@@ -81,13 +93,54 @@ const Dashboard = () => {
     }
   };
 
-  const handleColdEmailSetup = () => {
-    if (!googleSheetUrl) {
-      alert("Please provide a Google Sheets URL");
-      return;
-    }
-    console.log("Setting up cold email with sheet:", googleSheetUrl);
-  };
+const handleColdEmailSetup = async () => {
+  if (!googleSheetUrl || !userName.trim()) {
+    alert("Please provide both Google Sheets URL and your name");
+    return;
+  }
+
+  setLoadingEmails(true);
+  setEmailResults([]);
+
+//   await fetch("http://localhost:3001/gmail/send", {
+//   method: "POST",
+//   credentials: "include",
+//   headers: {
+//     "Content-Type": "application/json",
+//   },
+//   body: JSON.stringify({
+//     to: "example@example.com",
+//     subject: "Hello from Gmail API!",
+//     body: "This was sent via the Gmail API.",
+//   }),
+// });
+
+
+  const formattedUrl = convertToCsvUrl(googleSheetUrl);
+
+  try {
+    const res = await fetch("https://harshprojectn8n.app.n8n.cloud/webhook-test/coldemail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
+    });
+
+    const data = await res.json();
+
+    // 🔥 Add this line to fix the [Your Name] replacement issue
+    setEmailResults(
+      data.map((item: { email: string; content: string }) => ({
+        ...item,
+        content: item.content.replace(/\[Your Name\]/gi, userName),
+      }))
+    );
+  } catch (err) {
+    console.error("Failed to fetch cold emails:", err);
+    alert("Something went wrong.");
+  }
+
+  setLoadingEmails(false);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
@@ -115,6 +168,7 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* ATS Resume Check */}
           <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center space-x-2">
@@ -160,13 +214,13 @@ const Dashboard = () => {
                   <p className="mb-2 text-gray-300">{atsResult.summary}</p>
                   <h3 className="font-medium text-white mb-1">Suggestions:</h3>
                   <ul className="list-disc pl-5 text-sm text-gray-400 space-y-1">
-                    {atsResult.suggestions.map((s: string, i: number) => (
+                    {atsResult.suggestions.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
                   </ul>
                   <h3 className="font-medium text-white mt-4 mb-1">Detected Skills:</h3>
                   <div className="flex flex-wrap gap-2">
-                    {atsResult.detected_skills.map((skill: string, i: number) => (
+                    {atsResult.detected_skills.map((skill, i) => (
                       <span
                         key={i}
                         className="px-3 py-1 bg-purple-700/30 text-sm rounded-full border border-purple-500"
@@ -180,6 +234,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Cold Email Automation */}
           <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center space-x-2">
@@ -191,6 +246,17 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="yourName" className="text-gray-300">Your Name</Label>
+                <Input
+                  id="yourName"
+                  type="text"
+                  placeholder="e.g., Harsh Gupta"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="mt-2 bg-gray-800 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
               <div>
                 <Label htmlFor="sheetUrl" className="text-gray-300">Google Sheets URL</Label>
                 <Input
@@ -214,11 +280,56 @@ const Dashboard = () => {
               <Button
                 onClick={handleColdEmailSetup}
                 className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
-                disabled={!googleSheetUrl}
+                disabled={!googleSheetUrl || !userName.trim()}
               >
                 <Mail className="mr-2 h-4 w-4" />
                 Setup Cold Email Campaign
               </Button>
+              {loadingEmails && <p className="text-sm text-gray-400">Generating emails...</p>}
+              {emailResults.length > 0 && (
+                <div className="mt-4 space-y-6 max-h-96 overflow-y-auto">
+                  {emailResults.map((item, index) => (
+                    <div key={index} className="p-4 border border-gray-700 rounded-lg bg-gray-900/50 text-white">
+                      <p className="text-sm text-gray-400 mb-1"><strong>To:</strong> {item.email}</p>
+                      <pre className="text-sm whitespace-pre-wrap bg-gray-900/40 p-3 rounded text-gray-300">{item.content}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+{/* <Button
+  className="mt-4 w-full bg-gradient-to-r from-red-500 to-yellow-500 hover:from-red-600 hover:to-yellow-600"
+  onClick={async () => {
+    try {
+      const res = await fetch("http://localhost:3001/gmail/send", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: "target@example.com",
+          subject: "Hello from Gmail API!",
+          body: "<p>This was sent via the Gmail API from AutoJob Flow 🚀</p>",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("Email sent successfully!");
+      } else {
+        alert("Failed to send email");
+      }
+    } catch (error) {
+      console.error("Email send failed:", error);
+      alert("An error occurred while sending the email.");
+    }
+  }}
+>
+  Send Test Email via Gmail API
+</Button> */}
+
+
+
             </CardContent>
           </Card>
         </div>
