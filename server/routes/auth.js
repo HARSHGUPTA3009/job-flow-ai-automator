@@ -14,7 +14,8 @@ router.get('/google/callback',
     console.log("Session:", req.session);
 
     // ✅ Redirect to frontend dashboard
-    res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+    res.redirect('https://jobflow-black.vercel.app/dashboard');
+
   }
 );
 
