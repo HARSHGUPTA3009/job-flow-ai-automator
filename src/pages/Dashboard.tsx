@@ -102,19 +102,6 @@ const handleColdEmailSetup = async () => {
   setLoadingEmails(true);
   setEmailResults([]);
 
-//   await fetch("http://localhost:3001/gmail/send", {
-//   method: "POST",
-//   credentials: "include",
-//   headers: {
-//     "Content-Type": "application/json",
-//   },
-//   body: JSON.stringify({
-//     to: "example@example.com",
-//     subject: "Hello from Gmail API!",
-//     body: "This was sent via the Gmail API.",
-//   }),
-// });
-
 
   const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
@@ -296,38 +283,6 @@ const handleColdEmailSetup = async () => {
                   ))}
                 </div>
               )}
-{/* <Button
-  className="mt-4 w-full bg-gradient-to-r from-red-500 to-yellow-500 hover:from-red-600 hover:to-yellow-600"
-  onClick={async () => {
-    try {
-      const res = await fetch("http://localhost:3001/gmail/send", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: "target@example.com",
-          subject: "Hello from Gmail API!",
-          body: "<p>This was sent via the Gmail API from AutoJob Flow 🚀</p>",
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        alert("Email sent successfully!");
-      } else {
-        alert("Failed to send email");
-      }
-    } catch (error) {
-      console.error("Email send failed:", error);
-      alert("An error occurred while sending the email.");
-    }
-  }}
->
-  Send Test Email via Gmail API
-</Button> */}
-
 
 
             </CardContent>

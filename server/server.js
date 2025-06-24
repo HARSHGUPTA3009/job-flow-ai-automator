@@ -5,9 +5,10 @@ const session = require('express-session');
 require('dotenv').config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5001;
 app.use(cors({
-  origin: process.env.CLIENT_URL, 
+  origin: 'https://jobflow-black.vercel.app', // your frontend domain
   credentials: true
 }));
 
@@ -21,8 +22,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'None',
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
