@@ -24,7 +24,7 @@ const Dashboard = () => {
   const [atsResult, setATSResult] = useState<ATSResult | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:3001/auth/status", {
+    fetch("https://jobflow-backend-ai.onrender.com/auth/status", {
       credentials: "include",
     })
       .then((res) => res.json())
@@ -43,7 +43,7 @@ const Dashboard = () => {
 
   const handleSignOut = async () => {
     try {
-      const res = await fetch("http://localhost:3001/auth/logout", {
+      const res = await fetch("https://jobflow-backend-ai.onrender.com/auth/logout", {
         method: "POST",
         credentials: "include",
       });
