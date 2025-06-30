@@ -1,74 +1,75 @@
 # Welcome to your Lovable project
 
 ## Project info
+# 🚀 AutoJob Flow — Full Stack Cold Email Automation using n8n
+> AI-Powered, Resume-Aware Outreach Automation for Job Seekers, Indie Hackers & Founders
 
-Full Stack Automated Cold Email System with n8n
+<p align="center">
+  <img src="screenshots/0.jpeg" width="850" />
+  <img src="screenshots/1.jpeg" width="850" />
+  <img src="screenshots/2.jpeg" width="850" />
+  <img src="screenshots/3.jpeg" width="850" />
+</p>
 
-Effortless outreach for job seekers, indie hackers, and founders — from raw leads & resumes to personalized cold emails.
-✨ Overview
+---
 
-This project is a full-stack, intelligent automation system that:
-✅ Converts messy job leads & resumes into structured data
-✅ Scores resumes against job descriptions using AI
-✅ Crafts personalized cold emails tailored to each company & role
-✅ (Soon) Sends emails & tracks responses — all on autopilot.
+## ✨ Overview
 
-Built using:
+**AutoJob Flow** is an intelligent job outreach platform that:
+- Extracts raw leads from Google Sheets
+- Scores resumes using LLM-based logic
+- Generates highly personalized cold emails
+- Is fully automated using n8n + full stack
 
-React + TailwindCSS for a sleek frontend
-Node.js + Express + MongoDB for backend & data storage
-Google OAuth2 for secure, passwordless login
-n8n (self-hosted) for powerful automation workflows
-OpenAI / Gemini for AI resume scoring & email generation
-Google Sheets as a dynamic input data source
-🧩 Features
+---
 
-🔐 Google OAuth2 Login + JWT Sessions
-Secure Google login — no passwords needed
-JWT-based session management
-Fully ready for Gmail API authentication to send emails on behalf of users
-📑 Google Sheets Integration
-Upload or link a Google Sheet with your leads (Name, Role, Company, LinkedIn, etc.)
-n8n pulls and cleans the data into structured JSON
-🧠 Resume Scoring (ATS-Like)
-Upload a resume (PDF/Docx parsed into text)
-n8n + LLM process compares resume to target job roles:
-Skill & keyword matching
-Resume clarity & structure analysis
-Relevance scoring
-This is a solid workaround for early ATS screening — while exploring better free ATS APIs.
-✉️ Personalized Cold Email Generator
-Combines cleaned lead data + resume context + user-specified tone
-Generates unique, high-converting cold emails for each role & company
-Ensures high personalization without manual effort
-🔜 Coming Soon
-Automated sending via Gmail API
-Response tracking + Google Sheet status updates
-Outreach dashboard with insights (emails sent, scores, open rates, etc.)
-⚙️ Tech Stack
+## 🧠 What It Does
 
-Layer	Tech
-Frontend	React (Vite) + TailwindCSS
-Backend	Node.js + Express + MongoDB
-Auth	Google OAuth2 + JWT
-Workflows	n8n (self-hosted)
-AI Models	OpenAI / Gemini via HTTP in n8n
-Data Source	Google Sheets (read/write)
-Resume Logic	Text extraction + prompt-based LLM scoring
-🚀 How It Works
+- ✅ Google OAuth2 login — secure, passwordless
+- ✅ Upload messy Google Sheets of leads (Name, Role, Company, LinkedIn, etc.)
+- ✅ AI analyzes resumes (via OpenAI/Gemini) for relevance and ATS score
+- ✅ Generates cold emails tailored to:
+  - Role
+  - Company
+  - Resume content
+  - Desired tone
+- 🚧 Soon: Auto-send via Gmail API, track responses, and monitor via dashboard
 
-[Google Sheet of Leads]
-          ⬇
-       n8n Workflow
- - Cleans data
- - Prepares JSON
-          ⬇
-[Resume Upload]
-          ⬇
-       n8n Workflow
- - AI scoring vs roles
-          ⬇
-[Cold Email Generation]
- - Uses resume + lead data + tone
-          ⬇
-[Outputs tailored emails]
+---
+
+## 🔍 Visual Walkthrough
+
+### 🖼 Homepage
+Elegant UI introducing the value of AI-powered job automation  
+![Homepage](screenshots/0.jpeg)
+
+### 🧾 Dashboard & Resume Scoring
+Upload resumes, link Google Sheets, view ATS compatibility score  
+![Dashboard](screenshots/3.jpeg)
+
+### ✉️ Generated Cold Emails
+Each lead gets a personalized, tone-aware email — unique and high converting  
+![Email](screenshots/2.jpeg)
+
+### ⚙️ n8n Flow
+Self-hosted automation setup: webhook → parsing → OpenAI → merge → final output  
+![n8n Workflow](screenshots/1.jpeg)
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer           | Tech                                         |
+|-----------------|----------------------------------------------|
+| **Frontend**    | React (Vite) + TailwindCSS                   |
+| **Backend**     | Node.js + Express + MongoDB                  |
+| **Auth**        | Google OAuth2 + JWT                          |
+| **Automation**  | n8n (self-hosted)                            |
+| **AI Models**   | OpenAI / Gemini (via HTTP request in n8n)    |
+| **Data Input**  | Google Sheets                                |
+| **Resume Logic**| Text extraction + LLM scoring via prompt     |
+
+---
+
+## 📂 System Architecture
+
