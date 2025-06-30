@@ -5,10 +5,10 @@
 > AI-Powered, Resume-Aware Outreach Automation for Job Seekers, Indie Hackers & Founders
 
 <p align="center">
-  <img src="screenshots/0.jpeg" width="850" />
-  <img src="screenshots/1.jpeg" width="850" />
-  <img src="screenshots/2.jpeg" width="850" />
-  <img src="screenshots/3.jpeg" width="850" />
+  <img src="0.jpeg" width="850" />
+  <img src="1.jpeg" width="850" />
+  <img src="2.jpeg" width="850" />
+  <img src="3.jpeg" width="850" />
 </p>
 
 ---
@@ -41,19 +41,18 @@
 
 ### 🖼 Homepage
 Elegant UI introducing the value of AI-powered job automation  
-![Homepage](screenshots/0.jpeg)
+
 
 ### 🧾 Dashboard & Resume Scoring
 Upload resumes, link Google Sheets, view ATS compatibility score  
-![Dashboard](screenshots/3.jpeg)
+
 
 ### ✉️ Generated Cold Emails
 Each lead gets a personalized, tone-aware email — unique and high converting  
-![Email](screenshots/2.jpeg)
+
 
 ### ⚙️ n8n Flow
 Self-hosted automation setup: webhook → parsing → OpenAI → merge → final output  
-![n8n Workflow](screenshots/1.jpeg)
 
 ---
 
