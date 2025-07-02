@@ -11,7 +11,6 @@
   <img src="3.jpeg" width="850" />
 </p>
 ---
-
 ## ✨ Overview
 
 **AutoJob Flow** is an intelligent job outreach platform that:
