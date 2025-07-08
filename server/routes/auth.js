@@ -14,12 +14,9 @@ router.get('/google/callback',
     console.log("Session:", req.session);
 
     // ✅ Redirect to frontend dashboard
-    res.redirect('https://jobflow-black.vercel.app');
-    
-
+    res.redirect('https://jobflow-black.vercel.app/dashboard');
   }
 );
-
 router.get('/status', (req, res) => {
   console.log("🔍 /auth/status checked");
   console.log("User:", req.user);
