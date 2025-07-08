@@ -20,7 +20,6 @@ const Dashboard = () => {
     suggestions: string[];
     detected_skills: string[];
   }
-
   const [atsResult, setATSResult] = useState<ATSResult | null>(null);
 
   useEffect(() => {
