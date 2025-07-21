@@ -79,7 +79,7 @@ const Dashboard = () => {
     formData.append("file", resumeFile);
 
     try {
-      const res = await fetch("https://harshprojectn8n.app.n8n.cloud/webhook-test/ats-checker", {
+      const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/atscheck", {
         method: "POST",
         body: formData,
       });
