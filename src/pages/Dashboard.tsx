@@ -194,27 +194,40 @@ const handleColdEmailSetup = async () => {
                 <FileText className="mr-2 h-4 w-4" />
                 Run ATS Check
               </Button>
-              {atsResult && (
+              
+              {atsResult && typeof atsResult.score === "number" && (
                 <div className="mt-8 p-6 bg-gray-800 rounded-xl border border-gray-700 text-white">
-                  <h2 className="text-xl font-semibold text-purple-400 mb-2">ATS Score: {atsResult.score}/100</h2>
-                  <p className="mb-2 text-gray-300">{atsResult.summary}</p>
-                  <h3 className="font-medium text-white mb-1">Suggestions:</h3>
-                  <ul className="list-disc pl-5 text-sm text-gray-400 space-y-1">
-                    {atsResult.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
-                  <h3 className="font-medium text-white mt-4 mb-1">Detected Skills:</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {atsResult.detected_skills.map((skill, i) => (
-                      <span
-                        key={i}
-                        className="px-3 py-1 bg-purple-700/30 text-sm rounded-full border border-purple-500"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  <h2 className="text-xl font-semibold text-purple-400 mb-2">
+                    ATS Score: {atsResult.score}/100
+                  </h2>
+                  <p className="mb-2 text-gray-300">{atsResult.summary || "No summary provided."}</p>
+
+                  {Array.isArray(atsResult.suggestions) && atsResult.suggestions.length > 0 && (
+                    <>
+                      <h3 className="font-medium text-white mb-1">Suggestions:</h3>
+                      <ul className="list-disc pl-5 text-sm text-gray-400 space-y-1">
+                        {atsResult.suggestions.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {Array.isArray(atsResult.detected_skills) && atsResult.detected_skills.length > 0 && (
+                    <>
+                      <h3 className="font-medium text-white mt-4 mb-1">Detected Skills:</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {atsResult.detected_skills.map((skill, i) => (
+                          <span
+                            key={i}
+                            className="px-3 py-1 bg-purple-700/30 text-sm rounded-full border border-purple-500"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
