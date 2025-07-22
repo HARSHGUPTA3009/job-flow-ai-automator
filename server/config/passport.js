@@ -11,7 +11,6 @@ passport.use(new GoogleStrategy(
     scope: [
       "profile",
       "email",
-      "https://www.googleapis.com/auth/gmail.send" 
     ],
     accessType: "offline",
     prompt: "consent",    

@@ -79,7 +79,7 @@ const Dashboard = () => {
     formData.append("file", resumeFile);
 
     try {
-      const res = await fetch("https://harshprojectn8n.app.n8n.cloud/webhook-test/ats-checker", {
+      const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/atscheck", {
         method: "POST",
         body: formData,
       });
@@ -105,7 +105,7 @@ const handleColdEmailSetup = async () => {
   const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
   try {
-    const res = await fetch("https://harshprojectn8n.app.n8n.cloud/webhook-test/coldemail", {
+    const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/coldemail", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
