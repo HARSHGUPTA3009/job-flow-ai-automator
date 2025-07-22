@@ -94,7 +94,45 @@ export const About = () => {
                 </a>
               </div>
             </Card>
+            <Card className="bg-gray-900/50 border-gray-800 p-8">
+              <h3 className="text-2xl font-bold text-white mb-4">
+                Developer
+              </h3>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-2xl font-bold text-white">
+                  RG
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-white">Reyansh Gahlot</h4>
+                  <p className="text-gray-400">Full Stack Developer & AI Enthusiast</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <a 
+                  href="https://github.com/reyansh17" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-gray-300 hover:text-white"
+                >
+                  <Github className="h-5 w-5" />
+                  GitHub
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+                <a 
+                  href="https://linkedin.com/in/reyanshgahlot" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white"
+                >
+                  <Linkedin className="h-5 w-5" />
+                  LinkedIn
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            </Card>
           </div>
+          
 
           {/* Tech Stack */}
           <div>
