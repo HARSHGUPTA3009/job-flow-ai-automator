@@ -92,41 +92,41 @@ const Dashboard = () => {
     }
   };
 
-  const handleColdEmailSetup = async () => {
-    if (!googleSheetUrl || !userName.trim()) {
-      alert("Please provide both Google Sheets URL and your name");
-      return;
-    }
+const handleColdEmailSetup = async () => {
+  if (!googleSheetUrl || !userName.trim()) {
+    alert("Please provide both Google Sheets URL and your name");
+    return;
+  }
 
-    setLoadingEmails(true);
-    setEmailResults([]);
+  setLoadingEmails(true);
+  setEmailResults([]);
 
-    const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
-    try {
-      const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/coldemail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
-      });
+  const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
-      const data = await res.json();
+  try {
+    const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/coldemail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
+    });
 
-      if (!Array.isArray(data)) throw new Error("Invalid data format from backend");
+    const data = await res.json();
 
-      setEmailResults(
-        data.map((item: { email: string; content: string }) => ({
-          ...item,
-          content: item.content.replace(/\[Your Name\]/gi, userName),
-        }))
-      );
-    } catch (err) {
-      console.error("Failed to fetch cold emails:", err);
-      alert("Something went wrong.");
-    }
+    // 🔥 Add this line to fix the [Your Name] replacement issue
+    setEmailResults(
+      data.map((item: { email: string; content: string }) => ({
+        ...item,
+        content: item.content.replace(/\[Your Name\]/gi, userName),
+      }))
+    );
+  } catch (err) {
+    console.error("Failed to fetch cold emails:", err);
+    alert("Something went wrong.");
+  }
 
-    setLoadingEmails(false);
-  };
+  setLoadingEmails(false);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
@@ -154,6 +154,72 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* ATS Resume Check */}
+          <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
+            <CardHeader>
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-6 w-6 text-purple-400" />
+                <CardTitle className="text-white">ATS Resume Check</CardTitle>
+              </div>
+              <CardDescription className="text-gray-400">
+                Upload your resume to get an ATS compatibility score and optimization suggestions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="resume" className="text-gray-300">Upload Resume (PDF/DOCX)</Label>
+                <div className="mt-2">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-400">
+                        {resumeFile ? resumeFile.name : "Click to upload or drag and drop"}
+                      </p>
+                    </div>
+                    <input
+                      id="resume"
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleResumeUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+              <Button
+                onClick={handleATSCheck}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                disabled={!resumeFile}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Run ATS Check
+              </Button>
+              {atsResult && (
+                <div className="mt-8 p-6 bg-gray-800 rounded-xl border border-gray-700 text-white">
+                  <h2 className="text-xl font-semibold text-purple-400 mb-2">ATS Score: {atsResult.score}/100</h2>
+                  <p className="mb-2 text-gray-300">{atsResult.summary}</p>
+                  <h3 className="font-medium text-white mb-1">Suggestions:</h3>
+                  <ul className="list-disc pl-5 text-sm text-gray-400 space-y-1">
+                    {atsResult.suggestions.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                  <h3 className="font-medium text-white mt-4 mb-1">Detected Skills:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {atsResult.detected_skills.map((skill, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1 bg-purple-700/30 text-sm rounded-full border border-purple-500"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Cold Email Automation */}
           <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-xl">
             <CardHeader>
@@ -216,6 +282,8 @@ const Dashboard = () => {
                   ))}
                 </div>
               )}
+
+
             </CardContent>
           </Card>
         </div>
