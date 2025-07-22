@@ -119,12 +119,7 @@ const handleColdEmailSetup = async () => {
         throw new Error("Invalid response format: expected an array");
       }
 
-      setEmailResults(
-        data.map((item: { email: string; content: string }) => ({
-          ...item,
-          content: item.content.replace(/\[Your Name\]/gi, userName),
-        }))
-      );
+
     } catch (jsonErr) {
       console.error("❌ JSON parsing error:", jsonErr);
       console.error("Raw response from server:", rawText);
