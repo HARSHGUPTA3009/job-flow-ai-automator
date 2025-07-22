@@ -91,7 +91,6 @@ const Dashboard = () => {
       alert("Something went wrong during ATS check.");
     }
   };
-
 const handleColdEmailSetup = async () => {
   if (!googleSheetUrl || !userName.trim()) {
     alert("Please provide both Google Sheets URL and your name");
@@ -110,30 +109,36 @@ const handleColdEmailSetup = async () => {
       body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP error ${res.status}: ${errorText}`);
+    const rawText = await res.text();
+
+    try {
+      const data = JSON.parse(rawText);
+      console.log("✅ Parsed cold email response:", data);
+
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid response format: expected an array");
+      }
+
+      setEmailResults(
+        data.map((item: { email: string; content: string }) => ({
+          ...item,
+          content: item.content.replace(/\[Your Name\]/gi, userName),
+        }))
+      );
+    } catch (jsonErr) {
+      console.error("❌ JSON parsing error:", jsonErr);
+      console.error("Raw response from server:", rawText);
+      alert("Cold email generation failed due to invalid response format.");
     }
 
-    const data = await res.json();
-
-    if (!Array.isArray(data)) {
-      throw new Error("Invalid response format: expected an array");
-    }
-
-    setEmailResults(
-      data.map((item: { email: string; content: string }) => ({
-        ...item,
-        content: item.content.replace(/\[Your Name\]/gi, userName),
-      }))
-    );
   } catch (err) {
-    console.error("Failed to fetch cold emails:", err);
+    console.error("❌ Network or fetch error:", err);
     alert("Something went wrong while generating cold emails.");
   }
 
   setLoadingEmails(false);
 };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
