@@ -101,7 +101,6 @@ const handleColdEmailSetup = async () => {
   setLoadingEmails(true);
   setEmailResults([]);
 
-
   const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
   try {
@@ -111,9 +110,17 @@ const handleColdEmailSetup = async () => {
       body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
     });
 
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`HTTP error ${res.status}: ${errorText}`);
+    }
+
     const data = await res.json();
 
-    // 🔥 Add this line to fix the [Your Name] replacement issue
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid response format: expected an array");
+    }
+
     setEmailResults(
       data.map((item: { email: string; content: string }) => ({
         ...item,
@@ -122,7 +129,7 @@ const handleColdEmailSetup = async () => {
     );
   } catch (err) {
     console.error("Failed to fetch cold emails:", err);
-    alert("Something went wrong.");
+    alert("Something went wrong while generating cold emails.");
   }
 
   setLoadingEmails(false);
