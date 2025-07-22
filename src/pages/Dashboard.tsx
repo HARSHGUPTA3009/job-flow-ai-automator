@@ -109,30 +109,39 @@ const handleColdEmailSetup = async () => {
       body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
     });
 
-    const rawText = await res.text();
+    const text = await res.text();
+    console.log("💡 Raw response text from server:", text);
 
+    let data;
     try {
-      const data = JSON.parse(rawText);
-      console.log("✅ Parsed cold email response:", data);
-
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid response format: expected an array");
-      }
-
-
-    } catch (jsonErr) {
-      console.error("❌ JSON parsing error:", jsonErr);
-      console.error("Raw response from server:", rawText);
-      alert("Cold email generation failed due to invalid response format.");
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("❌ JSON parse error:", e);
+      throw new Error("Cold email generation failed due to invalid JSON format.");
     }
 
+    console.log("✅ Parsed JSON data:", data);
+
+    if (!Array.isArray(data) || !data.every(item => item.email && item.content)) {
+      console.error("❌ Invalid structure in response:", data);
+      throw new Error("Cold email generation failed due to unexpected response structure.");
+    }
+
+    setEmailResults(
+      data.map((item: { email: string; content: string }) => ({
+        ...item,
+        content: item.content.replace(/\[Your Name\]/gi, userName),
+      }))
+    );
+
   } catch (err) {
-    console.error("❌ Network or fetch error:", err);
+    console.error("❌ Failed to fetch cold emails:", err);
     alert("Something went wrong while generating cold emails.");
   }
 
   setLoadingEmails(false);
 };
+
 
 
   return (
