@@ -91,6 +91,7 @@ const Dashboard = () => {
       alert("Something went wrong during ATS check.");
     }
   };
+
 const handleColdEmailSetup = async () => {
   if (!googleSheetUrl || !userName.trim()) {
     alert("Please provide both Google Sheets URL and your name");
@@ -99,6 +100,7 @@ const handleColdEmailSetup = async () => {
 
   setLoadingEmails(true);
   setEmailResults([]);
+
 
   const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
@@ -109,40 +111,22 @@ const handleColdEmailSetup = async () => {
       body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
     });
 
-    const text = await res.text();
-    console.log("💡 Raw response text from server:", text);
+    const data = await res.json();
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error("❌ JSON parse error:", e);
-      throw new Error("Cold email generation failed due to invalid JSON format.");
-    }
-
-    console.log("✅ Parsed JSON data:", data);
-
-    if (!Array.isArray(data) || !data.every(item => item.email && item.content)) {
-      console.error("❌ Invalid structure in response:", data);
-      throw new Error("Cold email generation failed due to unexpected response structure.");
-    }
-
+    // 🔥 Add this line to fix the [Your Name] replacement issue
     setEmailResults(
       data.map((item: { email: string; content: string }) => ({
         ...item,
         content: item.content.replace(/\[Your Name\]/gi, userName),
       }))
     );
-
   } catch (err) {
-    console.error("❌ Failed to fetch cold emails:", err);
-    alert("Something went wrong while generating cold emails.");
+    console.error("Failed to fetch cold emails:", err);
+    alert("Something went wrong.");
   }
 
   setLoadingEmails(false);
 };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
