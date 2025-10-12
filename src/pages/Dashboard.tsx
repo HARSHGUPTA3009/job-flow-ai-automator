@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Mail, BarChart3 } from "lucide-react";
+import { Upload, FileText, Mail, BarChart3, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -13,6 +13,7 @@ const Dashboard = () => {
   const [userName, setUserName] = useState("");
   const [emailResults, setEmailResults] = useState<{ email: string; content: string }[]>([]);
   const [loadingEmails, setLoadingEmails] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   interface ATSResult {
     score: number;
@@ -47,7 +48,7 @@ const Dashboard = () => {
         credentials: "include",
       });
       if (res.ok) {
-        navigate("/signin");
+         window.location.href = "/";
       } else {
         console.error("Failed to logout");
       }
@@ -92,61 +93,130 @@ const Dashboard = () => {
     }
   };
 
-const handleColdEmailSetup = async () => {
-  if (!googleSheetUrl || !userName.trim()) {
-    alert("Please provide both Google Sheets URL and your name");
-    return;
-  }
+  const handleColdEmailSetup = async () => {
+    if (!googleSheetUrl || !userName.trim()) {
+      alert("Please provide both Google Sheets URL and your name");
+      return;
+    }
 
-  setLoadingEmails(true);
-  setEmailResults([]);
+    setLoadingEmails(true);
+    setEmailResults([]);
 
+    const formattedUrl = convertToCsvUrl(googleSheetUrl);
 
-  const formattedUrl = convertToCsvUrl(googleSheetUrl);
+    try {
+      const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/coldemail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
+      });
 
-  try {
-    const res = await fetch("https://harshwillmakethis.app.n8n.cloud/webhook-test/coldemail", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sheetUrl: formattedUrl, yourName: userName }),
-    });
+      const data = await res.json();
 
-    const data = await res.json();
+      setEmailResults(
+        data.map((item: { email: string; content: string }) => ({
+          ...item,
+          content: item.content.replace(/\[Your Name\]/gi, userName),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to fetch cold emails:", err);
+      alert("Something went wrong.");
+    }
 
-    // 🔥 Add this line to fix the [Your Name] replacement issue
-    setEmailResults(
-      data.map((item: { email: string; content: string }) => ({
-        ...item,
-        content: item.content.replace(/\[Your Name\]/gi, userName),
-      }))
-    );
-  } catch (err) {
-    console.error("Failed to fetch cold emails:", err);
-    alert("Something went wrong.");
-  }
-
-  setLoadingEmails(false);
-};
+    setLoadingEmails(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
-      <nav className="border-b border-gray-800 bg-black/50 backdrop-blur-xl">
+      {/* ✅ Navbar Section */}
+      <nav className="border-b border-gray-800 bg-black/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+            {/* Brand */}
+            <div
+              className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent cursor-pointer"
+              onClick={() => navigate("/dashboard")}
+            >
               AutoJob Flow
             </div>
-            <Button
-              variant="outline"
-              className="border-gray-600 text-black-300 hover:text-black-900 hover:bg-gray-800"
-              onClick={handleSignOut}
-            >
-              Sign Out
-            </Button>
+
+            {/* Desktop Links */}
+            <div className="hidden md:flex space-x-6">
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/dashboard")}
+                className="text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Dashboard
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/resume-check")}
+                className="text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Resume Check
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/cold-email")}
+                className="text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Cold Email
+              </Button>
+            </div>
+
+            {/* User Info + Logout */}
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-400 text-sm hidden sm:block">Hi, {userName || "User"}</span>
+              <Button
+                variant="outline"
+                className="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800"
+                onClick={handleSignOut}
+              >
+                Sign Out
+              </Button>
+
+              {/* Mobile Menu Toggle */}
+              <button
+                className="md:hidden text-gray-400 hover:text-white"
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </div>
           </div>
+
+          {/* Mobile Menu */}
+          {menuOpen && (
+            <div className="md:hidden mt-2 pb-3 space-y-2">
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/dashboard")}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Dashboard
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/resume-check")}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Resume Check
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/cold-email")}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                Cold Email
+              </Button>
+            </div>
+          )}
         </div>
       </nav>
 
+      {/* ✅ Main Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
@@ -282,8 +352,6 @@ const handleColdEmailSetup = async () => {
                   ))}
                 </div>
               )}
-
-
             </CardContent>
           </Card>
         </div>

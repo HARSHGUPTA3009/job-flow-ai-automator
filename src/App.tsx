@@ -9,6 +9,9 @@ import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
+// Add this useEffect in your App component
+
+
 const queryClient = new QueryClient();
 
 const App = () => (
