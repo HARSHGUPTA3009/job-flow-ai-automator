@@ -16,12 +16,7 @@ export const Navigation = () => {
             </Link>
           </div>
           
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              <a href="#features" className="text-gray-300 hover:text-white transition-colors duration-200">Features</a>
-              <a href="#about" className="text-gray-300 hover:text-white transition-colors duration-200">About</a>
-            </div>
-          </div>
+        
 
           <div className="hidden md:flex items-center space-x-4">
             <Link to="/signin">
