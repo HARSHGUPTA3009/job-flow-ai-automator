@@ -142,7 +142,7 @@ const Dashboard = () => {
             </div>
 
             {/* Desktop Links */}
-            <div className="hidden md:flex space-x-6">
+            {/* <div className="hidden md:flex space-x-6">
               <Button
                 variant="ghost"
                 onClick={() => navigate("/dashboard")}
@@ -164,7 +164,7 @@ const Dashboard = () => {
               >
                 Cold Email
               </Button>
-            </div>
+            </div> */}
 
             {/* User Info + Logout */}
             <div className="flex items-center space-x-4">

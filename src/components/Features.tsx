@@ -32,7 +32,8 @@ export const Features = () => {
       title: "Workflow Integration",
       description: "Seamlessly integrate with your existing tools through n8n automation workflows.",
       icon: "🔗"
-    }
+    },
+    
   ];
 
   return (
