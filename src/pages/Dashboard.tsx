@@ -30,7 +30,7 @@ const Dashboard = () => {
       .then((res) => res.json())
       .then((data) => {
         if (!data.authenticated) {
-          navigate("/signin");
+          navigate("/dashboard");
         } else {
           if (data.user?.name) setUserName(data.user.name);
         }
@@ -163,7 +163,7 @@ const Dashboard = () => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/placement")}
+                onClick={() => navigate("/placements")}
                 className="text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
               >
                 <Briefcase size={16} />
