@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 5001;
 // ============================================================================
 
 app.use(cors({
-  origin: 'https://jobflow-black.vercel.app',
+  origin: true,
   credentials: true
 }));
 
