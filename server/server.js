@@ -7,7 +7,6 @@ require('dotenv').config();
 
 // Import routes
 const chatbotRoutes = require('./routes/chatbot');
-const connectDB = require('./config/db');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -41,8 +40,20 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ============================================================================
-// DATABASE CONNECTION
+// DATABASE CONNECTION (INLINE)
 // ============================================================================
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`❌ MongoDB Connection Error: ${error.message}`);
+  }
+};
 
 // Connect to MongoDB
 try {
