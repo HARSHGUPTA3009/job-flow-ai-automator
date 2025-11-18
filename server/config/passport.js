@@ -1,45 +1,55 @@
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const User = require("../models/User");  // <-- DB model
 
-const users = new Map();
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: `${process.env.API_URL}/auth/google/callback`,
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        // Check if user exists
+        let user = await User.findOne({ googleId: profile.id });
 
-passport.use(new GoogleStrategy(
-  {
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.API_URL}/auth/google/callback`,
-    scope: [
-      "profile",
-      "email",
-    ],
-    accessType: "offline",
-    prompt: "consent",    
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    const user = {
-      googleId: profile.id,
-      name: profile.displayName,
-      email: profile.emails?.[0]?.value || "",
-      picture: profile.photos?.[0]?.value || "",
-      tokens: {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      },
-    };
-    users.set(user.googleId, user);
-    return done(null, user);
-  }
-));
+        if (!user) {
+          // Create new user
+          user = await User.create({
+            googleId: profile.id,
+            name: profile.displayName,
+            email: profile.emails?.[0]?.value || "",
+            picture: profile.photos?.[0]?.value || "",
+            accessToken,
+            refreshToken,
+          });
+        } else {
+          // Update tokens if needed
+          user.accessToken = accessToken;
+          user.refreshToken = refreshToken;
+          await user.save();
+        }
 
+        return done(null, user);
+      } catch (error) {
+        return done(error, null);
+      }
+    }
+  )
+);
 
 passport.serializeUser((user, done) => {
-  done(null, user.googleId);
+  done(null, user._id);  // store MongoDB ID in session
 });
 
-passport.deserializeUser((id, done) => {
-  const user = users.get(id);
-  done(null, user || null);
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id).lean(); // fetch user from DB
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
 });
 
 module.exports = passport;
-module.exports.users = users;

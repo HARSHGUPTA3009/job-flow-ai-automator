@@ -1,41 +1,63 @@
-const express = require('express');
-const passport = require('../config/passport');
+const express = require("express");
+const passport = require("../config/passport");
 const router = express.Router();
 
-router.get('/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+// -------------------------------------
+// GOOGLE LOGIN
+// -------------------------------------
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/signin' }),
+// -------------------------------------
+// GOOGLE CALLBACK
+// -------------------------------------
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "https://jobflow-black.vercel.app/signin",
+    session: true,
+  }),
   (req, res) => {
     console.log("✅ Google login success");
     console.log("User:", req.user);
     console.log("Session:", req.session);
 
-    // ✅ Redirect to frontend dashboard
-    res.redirect('https://jobflow-black.vercel.app/dashboard');
+    res.redirect("https://jobflow-black.vercel.app/dashboard");
   }
 );
-router.get('/status', (req, res) => {
+
+// -------------------------------------
+// CHECK LOGIN STATUS
+// -------------------------------------
+router.get("/status", (req, res) => {
   if (req.isAuthenticated()) {
-    res.json({
+    return res.json({
       authenticated: true,
       user: {
-        id: req.user.id,        // ← Make sure this exists
+        id: req.user._id,         // FIX
         email: req.user.email,
-        name: req.user.name
+        name: req.user.name,
+        googleId: req.user.googleId
       }
     });
-  } else {
-    res.json({ authenticated: false });
   }
+
+  res.json({ authenticated: false });
 });
 
-router.post('/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) return res.status(500).json({ error: 'Logout failed' });
-    res.json({ message: 'Logged out successfully' });
+// -------------------------------------
+// LOGOUT
+// -------------------------------------
+router.post("/logout", (req, res) => {
+  req.logout(err => {
+    if (err) return res.status(500).json({ error: "Logout failed" });
+
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out successfully" });
+    });
   });
 });
 
