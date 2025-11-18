@@ -16,7 +16,7 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "https://jobflow-black.vercel.app/signin",
+    failureRedirect: "https://autojobflow.vercel.app/signin",
     session: true,
   }),
   (req, res) => {
@@ -24,7 +24,7 @@ router.get(
     console.log("User:", req.user);
     console.log("Session:", req.session);
 
-    res.redirect("https://jobflow-black.vercel.app/dashboard");
+    res.redirect("https://autojobflow.vercel.app/dashboard");
   }
 );
 
