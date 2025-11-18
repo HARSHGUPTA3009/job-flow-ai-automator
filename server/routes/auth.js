@@ -18,12 +18,18 @@ router.get('/google/callback',
   }
 );
 router.get('/status', (req, res) => {
-  console.log("🔍 /auth/status checked");
-  console.log("User:", req.user);
-  res.json({
-    authenticated: req.isAuthenticated(),
-    user: req.user || null
-  });
+  if (req.isAuthenticated()) {
+    res.json({
+      authenticated: true,
+      user: {
+        id: req.user.id,        // ← Make sure this exists
+        email: req.user.email,
+        name: req.user.name
+      }
+    });
+  } else {
+    res.json({ authenticated: false });
+  }
 });
 
 router.post('/logout', (req, res) => {

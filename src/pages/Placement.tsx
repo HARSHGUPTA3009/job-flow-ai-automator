@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Plus, Edit2, Trash2, Download, TrendingUp, Users, Briefcase, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, TrendingUp, Users, Briefcase, CheckCircle, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = 'https://jobflow-backend-ai.onrender.com';
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
 interface UserProfile {
-  id: string;
+  userId: string;
   name: string;
   email: string;
   phone: string;
@@ -25,7 +28,6 @@ interface UserProfile {
 }
 
 interface Resume {
-  id: string;
   name: string;
   url: string;
   uploadDate: string;
@@ -33,7 +35,7 @@ interface Resume {
 }
 
 interface OffCampusApplication {
-  id: string;
+  _id?: string;
   company: string;
   jobTitle: string;
   jobLink: string;
@@ -48,7 +50,7 @@ interface OffCampusApplication {
 }
 
 interface OnCampusApplication {
-  id: string;
+  _id?: string;
   companyName: string;
   role: string;
   appliedDate: string;
@@ -59,7 +61,7 @@ interface OnCampusApplication {
 }
 
 interface CompanyDrive {
-  id: string;
+  _id?: string;
   companyName: string;
   roles: string[];
   cutoffCGPA: number;
@@ -70,78 +72,123 @@ interface CompanyDrive {
   totalApplied: number;
 }
 
-interface Analytics {
-  totalApplications: number;
-  totalOnCampus: number;
-  totalOffCampus: number;
-  responsesReceived: number;
-  interviewsScheduled: number;
-  offersReceived: number;
-  acceptedOffers: number;
-  responseRate: number;
-  conversionRate: number;
-}
-
 // ============================================================================
 // PROFILE MANAGER COMPONENT
 // ============================================================================
 
 const ProfileManager: React.FC<{
-  profile: UserProfile;
-  setProfile: (profile: UserProfile) => void;
-}> = ({ profile, setProfile }) => {
+  userId: string;
+  profile: UserProfile | null;
+  onProfileUpdate: () => void;
+}> = ({ userId, profile, onProfileUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState(profile);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<Partial<UserProfile>>({
+    skills: [],
+    preferredRoles: [],
+    preferredLocations: []
+  });
 
-  const handleSave = () => {
-    setProfile(formData);
-    setIsEditing(false);
+  useEffect(() => {
+    if (profile) {
+      setFormData(profile);
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, ...formData })
+      });
+
+      if (response.ok) {
+        setIsEditing(false);
+        onProfileUpdate();
+      } else {
+        alert('Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Error saving profile');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (!profile && !isEditing) {
+    return (
+      <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8">
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-white mb-4">Create Your Profile</h3>
+          <p className="text-gray-400 mb-6">Set up your placement profile to get started</p>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition"
+          >
+            Create Profile
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
   if (isEditing) {
     return (
       <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8">
-        <h3 className="text-2xl font-bold text-white mb-6">Edit Profile</h3>
+        <h3 className="text-2xl font-bold text-white mb-6">
+          {profile ? 'Edit Profile' : 'Create Profile'}
+        </h3>
         <div className="grid md:grid-cols-2 gap-4 mb-6">
           <input
             type="text"
             placeholder="Full Name"
-            value={formData.name}
+            value={formData.name || ''}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="email"
             placeholder="Email"
-            value={formData.email}
+            value={formData.email || ''}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="tel"
             placeholder="Phone"
-            value={formData.phone}
+            value={formData.phone || ''}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="text"
             placeholder="College"
-            value={formData.college}
+            value={formData.college || ''}
             onChange={(e) => setFormData({ ...formData, college: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="text"
             placeholder="Branch"
-            value={formData.branch}
+            value={formData.branch || ''}
             onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="number"
+            placeholder="Year"
+            value={formData.year || ''}
+            onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+            className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
+          />
+          <input
+            type="number"
             placeholder="CGPA"
-            value={formData.cgpa}
+            value={formData.cgpa || ''}
             onChange={(e) => setFormData({ ...formData, cgpa: parseFloat(e.target.value) })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
             step="0.1"
@@ -149,14 +196,14 @@ const ProfileManager: React.FC<{
           <input
             type="text"
             placeholder="LinkedIn Profile"
-            value={formData.linkedIn}
+            value={formData.linkedIn || ''}
             onChange={(e) => setFormData({ ...formData, linkedIn: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
           <input
             type="text"
             placeholder="GitHub Profile"
-            value={formData.github}
+            value={formData.github || ''}
             onChange={(e) => setFormData({ ...formData, github: e.target.value })}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
@@ -167,8 +214,8 @@ const ProfileManager: React.FC<{
           <input
             type="text"
             placeholder="React, Node.js, MongoDB, etc"
-            value={formData.skills.join(', ')}
-            onChange={(e) => setFormData({ ...formData, skills: e.target.value.split(',').map(s => s.trim()) })}
+            value={formData.skills?.join(', ') || ''}
+            onChange={(e) => setFormData({ ...formData, skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
             className="w-full bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
         </div>
@@ -176,13 +223,16 @@ const ProfileManager: React.FC<{
         <div className="flex gap-4">
           <button
             onClick={handleSave}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition"
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition disabled:opacity-50 flex items-center gap-2"
           >
+            {loading && <Loader2 className="animate-spin" size={16} />}
             Save Profile
           </button>
           <button
             onClick={() => setIsEditing(false)}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition"
+            disabled={loading}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition disabled:opacity-50"
           >
             Cancel
           </button>
@@ -218,7 +268,7 @@ const ProfileManager: React.FC<{
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">CGPA</p>
-          <p className="text-white font-semibold">{profile.cgpa.toFixed(2)}</p>
+          <p className="text-white font-semibold">{profile.cgpa?.toFixed(2) || 'N/A'}</p>
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">Year</p>
@@ -226,29 +276,14 @@ const ProfileManager: React.FC<{
         </div>
       </div>
 
-      <div className="mb-6">
-        <h4 className="text-white font-semibold mb-3">Skills</h4>
-        <div className="flex flex-wrap gap-2">
-          {profile.skills.map((skill, idx) => (
-            <span key={idx} className="bg-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm">
-              {skill}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {profile.resumes.length > 0 && (
-        <div>
-          <h4 className="text-white font-semibold mb-3">Resumes</h4>
-          <div className="space-y-2">
-            {profile.resumes.map((resume, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-gray-800/50 p-3 rounded border border-gray-700">
-                <div>
-                  <p className="text-white">{resume.name}</p>
-                  <p className="text-gray-400 text-sm">{resume.uploadDate}</p>
-                </div>
-                {resume.isActive && <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">Active</span>}
-              </div>
+      {profile.skills && profile.skills.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-white font-semibold mb-3">Skills</h4>
+          <div className="flex flex-wrap gap-2">
+            {profile.skills.map((skill, idx) => (
+              <span key={idx} className="bg-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm">
+                {skill}
+              </span>
             ))}
           </div>
         </div>
@@ -262,48 +297,90 @@ const ProfileManager: React.FC<{
 // ============================================================================
 
 const OffCampusTracker: React.FC<{
+  userId: string;
   applications: OffCampusApplication[];
-  setApplications: (apps: OffCampusApplication[]) => void;
-}> = ({ applications, setApplications }) => {
+  onUpdate: () => void;
+}> = ({ userId, applications, onUpdate }) => {
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Partial<OffCampusApplication>>({
     currency: 'INR',
-    source: 'linkedin'
+    source: 'linkedin',
+    status: 'applied'
   });
 
-  const handleAddApplication = () => {
-    if (formData.company && formData.jobTitle) {
-      const newApp: OffCampusApplication = {
-        id: Date.now().toString(),
-        company: formData.company || '',
-        jobTitle: formData.jobTitle || '',
-        jobLink: formData.jobLink || '',
-        salary: formData.salary,
-        currency: formData.currency || 'INR',
-        appliedDate: formData.appliedDate || new Date().toISOString().split('T')[0],
-        statusUpdatedDate: new Date().toISOString().split('T')[0],
-        status: 'applied',
-        notes: formData.notes || '',
-        followUpDates: [],
-        source: formData.source || 'linkedin'
-      };
-      setApplications([...applications, newApp]);
-      setFormData({ currency: 'INR', source: 'linkedin' });
-      setShowForm(false);
+  const handleAddApplication = async () => {
+    if (!formData.company || !formData.jobTitle) {
+      alert('Company and Job Title are required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/off-campus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId,
+          ...formData,
+          appliedDate: formData.appliedDate || new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (response.ok) {
+        setFormData({ currency: 'INR', source: 'linkedin', status: 'applied' });
+        setShowForm(false);
+        onUpdate();
+      } else {
+        alert('Failed to add application');
+      }
+    } catch (error) {
+      console.error('Error adding application:', error);
+      alert('Error adding application');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeleteApplication = (id: string) => {
-    setApplications(applications.filter(app => app.id !== id));
+  const handleDeleteApplication = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this application?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/off-campus/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        onUpdate();
+      } else {
+        alert('Failed to delete application');
+      }
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      alert('Error deleting application');
+    }
   };
 
-  const statusColors = {
-    applied: 'bg-blue-600/20 text-blue-300 border-blue-600',
-    screening: 'bg-yellow-600/20 text-yellow-300 border-yellow-600',
-    interview: 'bg-purple-600/20 text-purple-300 border-purple-600',
-    offer: 'bg-green-600/20 text-green-300 border-green-600',
-    rejected: 'bg-red-600/20 text-red-300 border-red-600',
-    accepted: 'bg-green-600/40 text-green-200 border-green-600'
+  const handleUpdateStatus = async (id: string, newStatus: OffCampusApplication['status']) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/off-campus/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        onUpdate();
+      } else {
+        alert('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Error updating status');
+    }
   };
 
   const statusStages = ['applied', 'screening', 'interview', 'offer', 'rejected', 'accepted'];
@@ -326,14 +403,14 @@ const OffCampusTracker: React.FC<{
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <input
               type="text"
-              placeholder="Company Name"
+              placeholder="Company Name *"
               value={formData.company || ''}
               onChange={(e) => setFormData({ ...formData, company: e.target.value })}
               className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
             />
             <input
               type="text"
-              placeholder="Job Title"
+              placeholder="Job Title *"
               value={formData.jobTitle || ''}
               onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
               className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
@@ -379,13 +456,16 @@ const OffCampusTracker: React.FC<{
           <div className="flex gap-4">
             <button
               onClick={handleAddApplication}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded transition"
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded transition disabled:opacity-50 flex items-center gap-2"
             >
+              {loading && <Loader2 className="animate-spin" size={16} />}
               Add Application
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition"
+              disabled={loading}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -402,14 +482,14 @@ const OffCampusTracker: React.FC<{
               {applications
                 .filter(app => app.status === stage)
                 .map(app => (
-                  <Card key={app.id} className="bg-gray-800 border-gray-700 p-3">
+                  <Card key={app._id} className="bg-gray-800 border-gray-700 p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <p className="text-white font-semibold text-sm">{app.company}</p>
                         <p className="text-gray-400 text-xs">{app.jobTitle}</p>
                       </div>
                       <button
-                        onClick={() => handleDeleteApplication(app.id)}
+                        onClick={() => handleDeleteApplication(app._id!)}
                         className="text-red-400 hover:text-red-300"
                       >
                         <Trash2 size={14} />
@@ -418,7 +498,16 @@ const OffCampusTracker: React.FC<{
                     {app.salary && (
                       <p className="text-blue-400 text-xs mb-2">₹{app.salary.toLocaleString()}</p>
                     )}
-                    <p className="text-gray-500 text-xs">{app.appliedDate}</p>
+                    <p className="text-gray-500 text-xs mb-2">{app.appliedDate}</p>
+                    <select
+                      value={app.status}
+                      onChange={(e) => handleUpdateStatus(app._id!, e.target.value as OffCampusApplication['status'])}
+                      className="w-full bg-gray-700 text-white text-xs p-1 rounded border border-gray-600"
+                    >
+                      {statusStages.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </Card>
                 ))}
             </div>
@@ -434,31 +523,63 @@ const OffCampusTracker: React.FC<{
 // ============================================================================
 
 const OnCampusTracker: React.FC<{
+  userId: string;
   applications: OnCampusApplication[];
   companyDrives: CompanyDrive[];
-  setApplications: (apps: OnCampusApplication[]) => void;
-  setCompanyDrives: (drives: CompanyDrive[]) => void;
   userCGPA: number;
-}> = ({ applications, companyDrives, setApplications, setCompanyDrives, userCGPA }) => {
+  onUpdate: () => void;
+}> = ({ userId, applications, companyDrives, userCGPA, onUpdate }) => {
   const [showDriveForm, setShowDriveForm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [driveFormData, setDriveFormData] = useState<Partial<CompanyDrive>>({});
 
-  const handleAddDrive = () => {
-    if (driveFormData.companyName) {
-      const newDrive: CompanyDrive = {
-        id: Date.now().toString(),
-        companyName: driveFormData.companyName || '',
-        roles: driveFormData.roles || [],
-        cutoffCGPA: driveFormData.cutoffCGPA || 0,
-        batchDate: driveFormData.batchDate || '',
-        resultsDate: driveFormData.resultsDate || '',
-        averagePackage: driveFormData.averagePackage || 0,
-        numberOfSelected: driveFormData.numberOfSelected || 0,
-        totalApplied: driveFormData.totalApplied || 0
-      };
-      setCompanyDrives([...companyDrives, newDrive]);
-      setDriveFormData({});
-      setShowDriveForm(false);
+  const handleAddDrive = async () => {
+    if (!driveFormData.companyName) {
+      alert('Company name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/company-drives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId, ...driveFormData })
+      });
+
+      if (response.ok) {
+        setDriveFormData({});
+        setShowDriveForm(false);
+        onUpdate();
+      } else {
+        alert('Failed to add company drive');
+      }
+    } catch (error) {
+      console.error('Error adding drive:', error);
+      alert('Error adding drive');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteDrive = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this drive?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/company-drives/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        onUpdate();
+      } else {
+        alert('Failed to delete drive');
+      }
+    } catch (error) {
+      console.error('Error deleting drive:', error);
+      alert('Error deleting drive');
     }
   };
 
@@ -480,7 +601,7 @@ const OnCampusTracker: React.FC<{
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <input
               type="text"
-              placeholder="Company Name"
+              placeholder="Company Name *"
               value={driveFormData.companyName || ''}
               onChange={(e) => setDriveFormData({ ...driveFormData, companyName: e.target.value })}
               className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-green-500 outline-none"
@@ -525,13 +646,16 @@ const OnCampusTracker: React.FC<{
           <div className="flex gap-4">
             <button
               onClick={handleAddDrive}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded transition"
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded transition disabled:opacity-50 flex items-center gap-2"
             >
+              {loading && <Loader2 className="animate-spin" size={16} />}
               Add Drive
             </button>
             <button
               onClick={() => setShowDriveForm(false)}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition"
+              disabled={loading}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -541,45 +665,46 @@ const OnCampusTracker: React.FC<{
 
       <div className="grid md:grid-cols-2 gap-6">
         {companyDrives.map((drive) => (
-          <Card key={drive.id} className="bg-gray-900/50 border-gray-800 p-6">
+          <Card key={drive._id} className="bg-gray-900/50 border-gray-800 p-6">
             <div className="flex justify-between items-start mb-4">
-              <div>
+              <div className="flex-1">
                 <h4 className="text-xl font-bold text-white">{drive.companyName}</h4>
-                <p className="text-gray-400 text-sm">{drive.roles.join(', ')}</p>
+                {drive.roles && drive.roles.length > 0 && (
+                  <p className="text-gray-400 text-sm">{drive.roles.join(', ')}</p>
+                )}
               </div>
-              {userCGPA >= drive.cutoffCGPA ? (
-                <span className="bg-green-600/30 text-green-300 px-3 py-1 rounded-full text-xs font-semibold">✓ Eligible</span>
-              ) : (
-                <span className="bg-red-600/30 text-red-300 px-3 py-1 rounded-full text-xs font-semibold">✗ Not Eligible</span>
-              )}
+              <div className="flex gap-2">
+                {userCGPA >= drive.cutoffCGPA ? (
+                  <span className="bg-green-600/30 text-green-300 px-3 py-1 rounded-full text-xs font-semibold">✓ Eligible</span>
+                ) : (
+                  <span className="bg-red-600/30 text-red-300 px-3 py-1 rounded-full text-xs font-semibold">✗ Not Eligible</span>
+                )}
+                <button
+                  onClick={() => handleDeleteDrive(drive._id!)}
+                  className="text-red-400 hover:text-red-300"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="bg-gray-800/50 p-3 rounded">
                 <p className="text-gray-400 text-xs">Cutoff CGPA</p>
-                <p className="text-white font-semibold">{drive.cutoffCGPA.toFixed(2)}</p>
+                <p className="text-white font-semibold">{drive.cutoffCGPA?.toFixed(2) || 'N/A'}</p>
               </div>
               <div className="bg-gray-800/50 p-3 rounded">
                 <p className="text-gray-400 text-xs">Avg Package</p>
-                <p className="text-white font-semibold">{drive.averagePackage} LPA</p>
+                <p className="text-white font-semibold">{drive.averagePackage || 'N/A'} LPA</p>
               </div>
               <div className="bg-gray-800/50 p-3 rounded">
                 <p className="text-gray-400 text-xs">Selected</p>
-                <p className="text-white font-semibold">{drive.numberOfSelected}</p>
+                <p className="text-white font-semibold">{drive.numberOfSelected || 0}</p>
               </div>
               <div className="bg-gray-800/50 p-3 rounded">
                 <p className="text-gray-400 text-xs">Batch Date</p>
-                <p className="text-white font-semibold text-sm">{drive.batchDate}</p>
+                <p className="text-white font-semibold text-sm">{drive.batchDate || 'N/A'}</p>
               </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm transition">
-                Apply
-              </button>
-              <button className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-sm transition">
-                View Details
-              </button>
             </div>
           </Card>
         ))}
@@ -596,8 +721,7 @@ const AnalyticsDashboard: React.FC<{
   offCampusApps: OffCampusApplication[];
   onCampusApps: OnCampusApplication[];
 }> = ({ offCampusApps, onCampusApps }) => {
-  // Calculate statistics
-  const stats: Analytics = {
+  const stats = {
     totalApplications: offCampusApps.length + onCampusApps.length,
     totalOnCampus: onCampusApps.length,
     totalOffCampus: offCampusApps.length,
@@ -609,7 +733,6 @@ const AnalyticsDashboard: React.FC<{
     conversionRate: offCampusApps.filter(a => ['interview', 'offer', 'accepted'].includes(a.status)).length > 0 ? (offCampusApps.filter(a => ['offer', 'accepted'].includes(a.status)).length / offCampusApps.filter(a => ['interview', 'offer', 'accepted'].includes(a.status)).length * 100) : 0
   };
 
-  // Prepare data for charts
   const statusDistributionData = [
     { name: 'Applied', value: offCampusApps.filter(a => a.status === 'applied').length, fill: '#3b82f6' },
     { name: 'Screening', value: offCampusApps.filter(a => a.status === 'screening').length, fill: '#f59e0b' },
@@ -699,7 +822,7 @@ const AnalyticsDashboard: React.FC<{
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, value }) => `${name}: ${value}`}
+                label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"
@@ -768,7 +891,7 @@ const AnalyticsDashboard: React.FC<{
               <div className="w-full bg-gray-700 rounded-full h-3">
                 <div 
                   className="bg-blue-500 h-3 rounded-full" 
-                  style={{width: `${(stats.totalOffCampus / stats.totalApplications * 100) || 0}%`}}
+                  style={{width: `${stats.totalApplications > 0 ? (stats.totalOffCampus / stats.totalApplications * 100) : 0}%`}}
                 />
               </div>
             </div>
@@ -780,7 +903,7 @@ const AnalyticsDashboard: React.FC<{
               <div className="w-full bg-gray-700 rounded-full h-3">
                 <div 
                   className="bg-green-500 h-3 rounded-full" 
-                  style={{width: `${(stats.totalOnCampus / stats.totalApplications * 100) || 0}%`}}
+                  style={{width: `${stats.totalApplications > 0 ? (stats.totalOnCampus / stats.totalApplications * 100) : 0}%`}}
                 />
               </div>
             </div>
@@ -805,113 +928,85 @@ const AnalyticsDashboard: React.FC<{
 // ============================================================================
 
 export default function Placement() {
-  const [profile, setProfile] = useState<UserProfile>({
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    phone: '+91-9876543210',
-    college: 'Indian Institute of Technology',
-    branch: 'Computer Science',
-    year: 3,
-    cgpa: 8.5,
-    skills: ['React', 'Node.js', 'MongoDB', 'TypeScript', 'Python'],
-    resumes: [
-      {
-        id: '1',
-        name: 'Resume v1.pdf',
-        url: '#',
-        uploadDate: '2024-01-15',
-        isActive: true
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>('');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [offCampusApps, setOffCampusApps] = useState<OffCampusApplication[]>([]);
+  const [onCampusApps, setOnCampusApps] = useState<OnCampusApplication[]>([]);
+  const [companyDrives, setCompanyDrives] = useState<CompanyDrive[]>([]);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/status`, {
+        credentials: 'include'
+      });
+      const data = await res.json();
+
+      if (!data.authenticated) {
+        navigate('/signin');
+        return;
       }
-    ],
-    linkedIn: 'https://linkedin.com/in/johndoe',
-    github: 'https://github.com/johndoe',
-    preferredRoles: ['Full Stack Developer', 'Software Engineer'],
-    preferredLocations: ['Bangalore', 'Hyderabad', 'Delhi']
-  });
 
-  const [offCampusApps, setOffCampusApps] = useState<OffCampusApplication[]>([
-    {
-      id: '1',
-      company: 'Google',
-      jobTitle: 'Software Engineer',
-      jobLink: 'https://careers.google.com',
-      salary: 2500000,
-      currency: 'INR',
-      appliedDate: '2024-01-10',
-      statusUpdatedDate: '2024-01-10',
-      status: 'interview',
-      notes: 'Initial round passed, waiting for second round',
-      followUpDates: ['2024-02-15'],
-      source: 'linkedin'
-    },
-    {
-      id: '2',
-      company: 'Amazon',
-      jobTitle: 'SDE-1',
-      jobLink: 'https://amazon.jobs',
-      salary: 2000000,
-      currency: 'INR',
-      appliedDate: '2024-01-08',
-      statusUpdatedDate: '2024-01-09',
-      status: 'screening',
-      notes: 'Under HR screening',
-      followUpDates: [],
-      source: 'indeed'
-    },
-    {
-      id: '3',
-      company: 'Microsoft',
-      jobTitle: 'Software Engineer 2',
-      jobLink: 'https://microsoft.com/careers',
-      salary: 2200000,
-      currency: 'INR',
-      appliedDate: '2024-01-05',
-      statusUpdatedDate: '2024-01-05',
-      status: 'applied',
-      notes: 'Just applied, waiting for response',
-      followUpDates: ['2024-02-05'],
-      source: 'linkedin'
+      const uid = data.user?.id || data.user?.email || 'default-user';
+      setUserId(uid);
+      await loadAllData(uid);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      navigate('/signin');
     }
-  ]);
+  };
 
-  const [onCampusApps, setOnCampusApps] = useState<OnCampusApplication[]>([
-    {
-      id: '1',
-      companyName: 'Accenture',
-      role: 'Associate',
-      appliedDate: '2024-01-12',
-      status: 'offer',
-      interviewRounds: 2,
-      offerPackage: 10,
-      offerLocation: 'Bangalore'
-    }
-  ]);
+  const loadAllData = async (uid: string) => {
+    setLoading(true);
+    try {
+      const [profileRes, offCampusRes, onCampusRes, drivesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/placement/profile/${uid}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/off-campus/${uid}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/on-campus/${uid}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/company-drives/${uid}`, { credentials: 'include' })
+      ]);
 
-  const [companyDrives, setCompanyDrives] = useState<CompanyDrive[]>([
-    {
-      id: '1',
-      companyName: 'Infosys',
-      roles: ['System Engineer', 'Technical Associate'],
-      cutoffCGPA: 7.5,
-      batchDate: '2024-02-01',
-      resultsDate: '2024-02-10',
-      averagePackage: 8.5,
-      numberOfSelected: 50,
-      totalApplied: 500
-    },
-    {
-      id: '2',
-      companyName: 'TCS',
-      roles: ['Software Engineer', 'Developer'],
-      cutoffCGPA: 8.0,
-      batchDate: '2024-02-15',
-      resultsDate: '2024-02-25',
-      averagePackage: 9.0,
-      numberOfSelected: 75,
-      totalApplied: 800
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setProfile(profileData);
+      }
+
+      if (offCampusRes.ok) {
+        const offCampusData = await offCampusRes.json();
+        setOffCampusApps(offCampusData);
+      }
+
+      if (onCampusRes.ok) {
+        const onCampusData = await onCampusRes.json();
+        setOnCampusApps(onCampusData);
+      }
+
+      if (drivesRes.ok) {
+        const drivesData = await drivesRes.json();
+        setCompanyDrives(drivesData);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin text-blue-500 mx-auto mb-4" size={48} />
+          <p className="text-white text-lg">Loading your placement data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-8">
@@ -924,21 +1019,26 @@ export default function Placement() {
         </div>
 
         {/* Profile Section */}
-        <ProfileManager profile={profile} setProfile={setProfile} />
+        <ProfileManager 
+          userId={userId}
+          profile={profile} 
+          onProfileUpdate={() => loadAllData(userId)}
+        />
 
         {/* Off-Campus Tracker */}
         <OffCampusTracker 
+          userId={userId}
           applications={offCampusApps} 
-          setApplications={setOffCampusApps}
+          onUpdate={() => loadAllData(userId)}
         />
 
         {/* On-Campus Tracker */}
         <OnCampusTracker 
+          userId={userId}
           applications={onCampusApps}
           companyDrives={companyDrives}
-          setApplications={setOnCampusApps}
-          setCompanyDrives={setCompanyDrives}
-          userCGPA={profile.cgpa}
+          userCGPA={profile?.cgpa || 0}
+          onUpdate={() => loadAllData(userId)}
         />
 
         {/* Analytics Dashboard */}

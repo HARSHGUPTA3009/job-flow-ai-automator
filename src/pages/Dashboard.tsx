@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Mail, BarChart3, Menu } from "lucide-react";
+import { Upload, FileText, Mail, BarChart3, Menu, Briefcase } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -142,7 +142,7 @@ const Dashboard = () => {
             </div>
 
             {/* Desktop Links */}
-            {/* <div className="hidden md:flex space-x-6">
+            <div className="hidden md:flex space-x-6">
               <Button
                 variant="ghost"
                 onClick={() => navigate("/dashboard")}
@@ -152,19 +152,13 @@ const Dashboard = () => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/resume-check")}
-                className="text-gray-300 hover:text-white hover:bg-gray-800"
+                onClick={() => navigate("/placement")}
+                className="text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
               >
-                Resume Check
+                <Briefcase size={16} />
+                Placement Tracker
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/cold-email")}
-                className="text-gray-300 hover:text-white hover:bg-gray-800"
-              >
-                Cold Email
-              </Button>
-            </div> */}
+            </div>
 
             {/* User Info + Logout */}
             <div className="flex items-center space-x-4">
@@ -199,17 +193,11 @@ const Dashboard = () => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/resume-check")}
-                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
+                onClick={() => navigate("/placement")}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
               >
-                Resume Check
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/cold-email")}
-                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
-              >
-                Cold Email
+                <Briefcase size={16} />
+                Placement Tracker
               </Button>
             </div>
           )}
