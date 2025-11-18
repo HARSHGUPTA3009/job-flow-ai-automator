@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Mail, BarChart3, Menu, Briefcase } from "lucide-react";
+import { Upload, FileText, Mail, BarChart3, Menu, Briefcase, Home, LogOut, LayoutDashboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -48,12 +48,14 @@ const Dashboard = () => {
         credentials: "include",
       });
       if (res.ok) {
-         window.location.href = "/";
+        navigate("/signin");
       } else {
         console.error("Failed to logout");
+        alert("Failed to logout. Please try again.");
       }
     } catch (error) {
       console.error("Logout error:", error);
+      alert("Logout error. Please try again.");
     }
   };
 
@@ -129,30 +131,39 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
-      {/* ✅ Navbar Section */}
+      {/* ✅ Enhanced Navbar */}
       <nav className="border-b border-gray-800 bg-black/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Brand */}
             <div
               className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent cursor-pointer"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/")}
             >
               AutoJob Flow
             </div>
 
             {/* Desktop Links */}
-            <div className="hidden md:flex space-x-6">
+            <div className="hidden md:flex space-x-2">
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/")}
+                className="text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
+              >
+                <Home size={16} />
+                Home
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => navigate("/dashboard")}
-                className="text-gray-300 hover:text-white hover:bg-gray-800"
+                className="text-white bg-gray-800 hover:text-white hover:bg-gray-700 flex items-center gap-2"
               >
+                <LayoutDashboard size={16} />
                 Dashboard
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/placements")}
+                onClick={() => navigate("/placement")}
                 className="text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
               >
                 <Briefcase size={16} />
@@ -165,10 +176,11 @@ const Dashboard = () => {
               <span className="text-gray-400 text-sm hidden sm:block">Hi, {userName || "User"}</span>
               <Button
                 variant="outline"
-                className="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800"
+                className="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
                 onClick={handleSignOut}
               >
-                Sign Out
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
 
               {/* Mobile Menu Toggle */}
@@ -186,15 +198,33 @@ const Dashboard = () => {
             <div className="md:hidden mt-2 pb-3 space-y-2">
               <Button
                 variant="ghost"
-                onClick={() => navigate("/dashboard")}
-                className="w-full text-gray-300 hover:text-white hover:bg-gray-800"
+                onClick={() => {
+                  navigate("/");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 justify-start"
               >
+                <Home size={16} />
+                Home
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  navigate("/dashboard");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-white bg-gray-800 hover:text-white hover:bg-gray-700 flex items-center gap-2 justify-start"
+              >
+                <LayoutDashboard size={16} />
                 Dashboard
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/placement")}
-                className="w-full text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
+                onClick={() => {
+                  navigate("/placement");
+                  setMenuOpen(false);
+                }}
+                className="w-full text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 justify-start"
               >
                 <Briefcase size={16} />
                 Placement Tracker
