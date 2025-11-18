@@ -152,7 +152,7 @@ const Dashboard = () => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate("/placement")}
+                onClick={() => navigate("/placements")}
                 className="text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2"
               >
                 <Briefcase size={16} />
