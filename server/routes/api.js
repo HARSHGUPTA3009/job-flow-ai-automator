@@ -58,9 +58,8 @@ router.post('/ats-check', requireAuth, upload.single('resume'), async (req, res)
 // ===============================
 // RESUME ROUTES
 // ===============================
-
 // Upload resume
-router.post('/resume/upload', requireAuth, upload.single('file'), (req, res) => {
+router.post('/resume/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const { userId } = req.body;
 
@@ -79,37 +78,52 @@ router.post('/resume/upload', requireAuth, upload.single('file'), (req, res) => 
       isActive: false
     };
 
-    // TODO: Save metadata to DB under userId
+    // 👉 Save to DB
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.resumes) {
+      user.resumes = [];
+    }
+
+    user.resumes.push(fileData);
+
+    await user.save();
 
     res.json({
       success: true,
       message: 'Resume uploaded successfully',
-      file: fileData
+      file: fileData,
+      resumes: user.resumes // 👈 send updated list back
     });
+
   } catch (error) {
     console.error('Resume Upload Error:', error);
     res.status(500).json({ error: 'Failed to upload resume' });
   }
 });
-
-// Download resume
-router.get('/resume/download/:fileId', requireAuth, (req, res) => {
-  const filePath = `uploads/${req.params.fileId}`;
-  res.download(filePath, (err) => {
-    if (err) {
-      res.status(404).json({ error: 'File not found' });
-    }
-  });
-});
-
 // Delete resume
 router.delete('/resume/:fileId', requireAuth, async (req, res) => {
   const { fileId } = req.params;
 
   try {
-    // TODO: Remove metadata and file
+    const userId = req.user._id; // or from body if required
 
-    // Delete physical file
+    // 👉 Remove from DB
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.resumes = user.resumes.filter(r => r.fileId !== fileId);
+
+    await user.save();
+
+    // 👉 Delete physical file
     const fs = require('fs');
     const filePath = `uploads/${fileId}`;
 
@@ -119,13 +133,16 @@ router.delete('/resume/:fileId', requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Resume deleted'
+      message: 'Resume deleted',
+      resumes: user.resumes // 👈 send updated list
     });
+
   } catch (error) {
     console.error('Resume Delete Error:', error);
     res.status(500).json({ error: 'Failed to delete resume' });
   }
 });
+
 
 
 // Cold email setup endpoint

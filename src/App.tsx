@@ -8,8 +8,9 @@ import Index from "./pages/Index";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
-import Placement from "./pages/Placement";
+import Placement from "./pages/Placements";
 import { Navigation } from "./components/Navigation";
+import Placements from "./pages/Placements";
 
 const queryClient = new QueryClient();
 
@@ -93,7 +94,7 @@ const App = () => {
               path="/placements"
               element={
                 user ? (
-                  <Placement user={user} />
+                  <Placements user={user} />
                 ) : (
                   <Navigate to="/signin" replace />
                 )
