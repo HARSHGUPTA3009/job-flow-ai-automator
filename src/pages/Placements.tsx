@@ -73,88 +73,106 @@ interface CompanyDrive {
   numberOfSelected: number;
   totalApplied: number;
 }
-
 // ============================================================================
-// RESUME MANAGER COMPONENT
+// RESUME MANAGER COMPONENT (UPDATED)
 // ============================================================================
-
 const ResumeManager: React.FC<{
   userId: string;
   resumes: Resume[];
   onUpdate: () => void;
 }> = ({ userId, resumes, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Upload resume
   const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
+
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('userId', userId);
+      formData.append("file", file);
+      formData.append("userId", userId);
 
       const response = await fetch(`${API_BASE_URL}/api/resume/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
+        method: "POST",
+        credentials: "include",
+        body: formData,
       });
 
       if (response.ok) {
-        onUpdate();
+        const data = await response.json();
+        console.log("Uploaded resumes:", data.resumes);
+        onUpdate(); // refresh UI
       } else {
-        alert('Failed to upload resume');
+        alert("Failed to upload resume");
       }
     } catch (error) {
-      console.error('Error uploading resume:', error);
-      alert('Error uploading resume');
+      console.error("Error uploading resume:", error);
+      alert("Error uploading resume");
     } finally {
       setUploading(false);
+      event.target.value = "";
     }
   };
 
+  // Delete resume
   const handleDeleteResume = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this resume?')) return;
+    if (!confirm("Are you sure you want to delete this resume?")) return;
+
+    setDeleting(fileId);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/placement/resume/${fileId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        body: JSON.stringify({ userId })
+      const response = await fetch(`${API_BASE_URL}/api/resume/${fileId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
       });
 
       if (response.ok) {
+        const data = await response.json();
+        console.log("Deleted resumes:", data.resumes);
         onUpdate();
       } else {
-        alert('Failed to delete resume');
+        alert("Failed to delete resume");
       }
     } catch (error) {
-      console.error('Error deleting resume:', error);
-      alert('Error deleting resume');
+      console.error("Error deleting resume:", error);
+      alert("Error deleting resume");
+    } finally {
+      setDeleting(null);
     }
   };
 
+  // Download resume
   const handleDownloadResume = async (fileId: string, fileName: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/resume/download/${fileId}`, {
-        credentials: 'include'
+        credentials: "include",
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+      if (!response.ok) {
+        alert("File not found");
+        return;
       }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
-      console.error('Error downloading resume:', error);
-      alert('Error downloading resume');
+      console.error("Error downloading resume:", error);
+      alert("Error downloading resume");
     }
   };
 
@@ -162,29 +180,40 @@ const ResumeManager: React.FC<{
     <Card className="bg-gray-900/50 border-gray-800 p-6 mb-8 backdrop-blur-xl">
       <h3 className="text-xl font-bold text-white mb-4">Resume Management</h3>
 
+      {/* Upload */}
       <div className="mb-6">
         <Label htmlFor="resume-upload" className="text-gray-300 block mb-2">
           Upload Resume (PDF/DOCX)
         </Label>
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800 transition">
+
+        <label
+          className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800 transition"
+          onClick={(e) => e.preventDefault()}        // <-- stops GET requests
+        >
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
             <Upload className="w-8 h-8 mb-2 text-gray-400" />
-            <p className="text-sm text-gray-400">Click to upload or drag and drop</p>
+            <p className="text-sm text-gray-400">
+              {uploading ? "Uploading..." : "Click to upload or drag and drop"}
+            </p>
           </div>
+
           <input
             id="resume-upload"
             type="file"
             className="hidden"
             accept=".pdf,.doc,.docx"
             onChange={handleResumeUpload}
+            onClick={(e) => e.stopPropagation()}     // <-- prevents label navigation
             disabled={uploading}
           />
         </label>
       </div>
 
-      {resumes && resumes.length > 0 && (
+      {/* List resumes */}
+      {resumes && resumes.length > 0 ? (
         <div className="space-y-3">
           <h4 className="text-white font-semibold mb-3">Your Resumes</h4>
+
           {resumes.map((resume, idx) => (
             <div
               key={idx}
@@ -196,7 +225,9 @@ const ResumeManager: React.FC<{
                   Uploaded: {new Date(resume.uploadDate).toLocaleDateString()}
                 </p>
               </div>
+
               <div className="flex gap-2">
+                {/* Download */}
                 <button
                   onClick={() => handleDownloadResume(resume.fileId, resume.name)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded flex items-center gap-2 transition"
@@ -204,21 +235,32 @@ const ResumeManager: React.FC<{
                   <Download size={16} />
                   <span className="hidden sm:inline">Download</span>
                 </button>
+
+                {/* Delete */}
                 <button
                   onClick={() => handleDeleteResume(resume.fileId)}
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded flex items-center gap-2 transition"
+                  className={`px-3 py-2 rounded flex items-center gap-2 transition ${
+                    deleting === resume.fileId
+                      ? "bg-red-800 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
+                  }`}
+                  disabled={deleting === resume.fileId}
                 >
                   <Trash2 size={16} />
-                  <span className="hidden sm:inline">Delete</span>
+                  <span className="hidden sm:inline">
+                    {deleting === resume.fileId ? "Deleting..." : "Delete"}
+                  </span>
                 </button>
               </div>
             </div>
           ))}
         </div>
-      )}
-
-      {!resumes || resumes.length === 0 && (
-        <p className="text-gray-400 text-center py-4">No resumes uploaded yet. Upload one to get started!</p>
+      ) : (
+        !uploading && (
+          <p className="text-gray-400 text-center py-4">
+            No resumes uploaded yet. Upload one to get started!
+          </p>
+        )
       )}
     </Card>
   );
