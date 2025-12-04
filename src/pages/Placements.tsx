@@ -87,62 +87,79 @@ const ResumeManager: React.FC<{
 
   // Upload resume with validation
   const handleResumeUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowedTypes.includes(file.type)) {
-      alert("Please upload a PDF or Word document");
-      event.target.value = "";
-      return;
-    }
+  /** ======================
+   *  REQUIRED VALIDATION
+   *  =====================*/
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File size must be less than 5MB");
-      event.target.value = "";
-      return;
-    }
+  // 1️⃣ Allowed extensions
+  const allowedTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    alert("Upload only PDF or Word document.");
+    event.target.value = "";
+    return;
+  }
 
-    setUploading(true);
+  // 2️⃣ 5MB Size limit
+  if (file.size > 5 * 1024 * 1024) {
+    alert("File size must be less than 5MB.");
+    event.target.value = "";
+    return;
+  }
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("userId", userId);
+  setUploading(true);
 
-      console.log("Uploading resume for userId:", userId);
+  try {
+    /** ======================
+     *  REQUIRED DATA ONLY
+     *  =====================*/
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", userId);
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/placement/resume/upload`,
-        {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        }
-      );
+    console.log("Uploading resume for user:", userId);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log("Upload successful:", data);
-        alert("Resume uploaded successfully!");
-        onUpdate();
-      } else {
-        console.error("Upload failed:", data);
-        alert(data.error || "Failed to upload resume. Please try again.");
+    const response = await fetch(
+      `${API_BASE_URL}/api/placement/resume/upload`,
+      {
+        method: "POST",
+        credentials: "include",
+        body: formData
       }
-    } catch (error) {
-      console.error("Error uploading resume:", error);
-      alert("Network error. Please check your connection and try again.");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Upload failed:", data);
+
+      // Backend sends clean messages
+      alert(data.error || "Failed to upload resume.");
+
+      return;
     }
-  };
+
+    console.log("Upload success:", data);
+    alert("Resume uploaded successfully!");
+    onUpdate(); // refresh data
+
+  } catch (err) {
+    console.error("Error uploading resume:", err);
+    alert("Network error. Please try again.");
+  } finally {
+    setUploading(false);
+    event.target.value = "";
+  }
+};
+
 
   // Delete resume
   const handleDeleteResume = async (fileId: string) => {
