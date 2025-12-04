@@ -85,7 +85,9 @@ const ResumeManager: React.FC<{
   const [deleting, setDeleting] = useState<string | null>(null);
 
   // Upload resume
-  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -96,16 +98,19 @@ const ResumeManager: React.FC<{
       formData.append("file", file);
       formData.append("userId", userId);
 
-      const response = await fetch(`${API_BASE_URL}/api/resume/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/placement/resume/upload`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
         console.log("Uploaded resumes:", data.resumes);
-        onUpdate(); // refresh UI
+        onUpdate();
       } else {
         alert("Failed to upload resume");
       }
@@ -125,14 +130,17 @@ const ResumeManager: React.FC<{
     setDeleting(fileId);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/resume/${fileId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/placement/resume/${fileId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -150,11 +158,17 @@ const ResumeManager: React.FC<{
   };
 
   // Download resume
-  const handleDownloadResume = async (fileId: string, fileName: string) => {
+  const handleDownloadResume = async (
+    fileId: string,
+    fileName: string
+  ) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/resume/download/${fileId}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/placement/resume/download/${fileId}`,
+        {
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         alert("File not found");
@@ -188,7 +202,6 @@ const ResumeManager: React.FC<{
 
         <label
           className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800 transition"
-          onClick={(e) => e.preventDefault()}        // <-- stops GET requests
         >
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
             <Upload className="w-8 h-8 mb-2 text-gray-400" />
@@ -203,7 +216,6 @@ const ResumeManager: React.FC<{
             className="hidden"
             accept=".pdf,.doc,.docx"
             onChange={handleResumeUpload}
-            onClick={(e) => e.stopPropagation()}     // <-- prevents label navigation
             disabled={uploading}
           />
         </label>
@@ -229,7 +241,9 @@ const ResumeManager: React.FC<{
               <div className="flex gap-2">
                 {/* Download */}
                 <button
-                  onClick={() => handleDownloadResume(resume.fileId, resume.name)}
+                  onClick={() =>
+                    handleDownloadResume(resume.fileId, resume.name)
+                  }
                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded flex items-center gap-2 transition"
                 >
                   <Download size={16} />
@@ -265,6 +279,7 @@ const ResumeManager: React.FC<{
     </Card>
   );
 };
+
 
 // ============================================================================
 // PROFILE MANAGER COMPONENT
