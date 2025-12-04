@@ -50,6 +50,79 @@ router.post('/ats-check', requireAuth, upload.single('resume'), async (req, res)
   }
 });
 
+// ===============================
+// RESUME ROUTES
+// ===============================
+
+// Upload resume
+router.post('/resume/upload', requireAuth, upload.single('file'), (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const fileData = {
+      fileId: req.file.filename,
+      name: req.file.originalname,
+      uploadDate: new Date(),
+      isActive: false
+    };
+
+    // TODO: Save metadata to DB under userId
+
+    res.json({
+      success: true,
+      message: 'Resume uploaded successfully',
+      file: fileData
+    });
+  } catch (error) {
+    console.error('Resume Upload Error:', error);
+    res.status(500).json({ error: 'Failed to upload resume' });
+  }
+});
+
+// Download resume
+router.get('/resume/download/:fileId', requireAuth, (req, res) => {
+  const filePath = `uploads/${req.params.fileId}`;
+  res.download(filePath, (err) => {
+    if (err) {
+      res.status(404).json({ error: 'File not found' });
+    }
+  });
+});
+
+// Delete resume
+router.delete('/resume/:fileId', requireAuth, async (req, res) => {
+  const { fileId } = req.params;
+
+  try {
+    // TODO: Remove metadata and file
+
+    // Delete physical file
+    const fs = require('fs');
+    const filePath = `uploads/${fileId}`;
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    res.json({
+      success: true,
+      message: 'Resume deleted'
+    });
+  } catch (error) {
+    console.error('Resume Delete Error:', error);
+    res.status(500).json({ error: 'Failed to delete resume' });
+  }
+});
+
+
 // Cold email setup endpoint
 router.post('/cold-email-setup', requireAuth, async (req, res) => {
   try {
