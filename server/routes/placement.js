@@ -3,11 +3,13 @@ const multer = require('multer');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const Profile = require('../models/Profile');
 
-// Import your Profile model (adjust path as needed)
-// const Profile = require('../models/Profile');
+// ===============================
+// FILE STORAGE SETUP
+// ===============================
 
-// Create uploads directory if it doesn't exist
+// Create uploads directory if doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -15,42 +17,35 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
+  destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + '-' + file.originalname);
   }
 });
 
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
+    const allowed = [
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'));
-    }
+    allowed.includes(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error('Invalid file type. Only PDF and Word files allowed.'));
   }
 });
 
-// Middleware to check if user is authenticated
+// ===============================
+// AUTH MIDDLEWARE
+// ===============================
+
 const requireAuth = (req, res, next) => {
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    return next();
-  }
-  // For testing without full auth
-  console.log('Auth check bypassed for testing');
+  if (req.isAuthenticated && req.isAuthenticated()) return next();
+  console.log('Auth bypassed (dev mode)');
   next();
 };
 
@@ -58,42 +53,55 @@ const requireAuth = (req, res, next) => {
 // PROFILE ROUTES
 // ===============================
 
-// Get profile
+// GET PROFILE
 router.get('/profile/:userId', requireAuth, async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    // TODO: Replace with actual database query
-    // const profile = await Profile.findOne({ userId });
-    
-    // For now, return null (will trigger profile creation in frontend)
-    res.json(null);
+    const profile = await Profile.findOne({ userId: req.params.userId });
+    res.json(profile || null);
   } catch (error) {
     console.error('Profile Fetch Error:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
-// Create/Update profile
+// CREATE/UPDATE PROFILE
 router.post('/profile', requireAuth, async (req, res) => {
   try {
-    const { userId, ...profileData } = req.body;
+    const {
+      userId,
+      name,
+      email,
+      phone,
+      college,
+      branch,
+      year,
+    } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+    // validation
+    if (!userId || !name || !email || !phone || !college || !branch || !year) {
+      return res.status(400).json({ error: "All fields are required" });
     }
 
-    // TODO: Replace with actual database save
-    // let profile = await Profile.findOne({ userId });
-    // if (!profile) {
-    //   profile = new Profile({ userId, ...profileData });
-    // } else {
-    //   Object.assign(profile, profileData);
-    // }
-    // await profile.save();
+    let profile = await Profile.findOne({ userId });
 
-    console.log('Profile saved:', { userId, ...profileData });
-    res.json({ success: true, message: 'Profile saved successfully' });
+    if (!profile) {
+      profile = new Profile({
+        userId,
+        name, email, phone,
+        college, branch, year,
+        resumes: []
+      });
+    } else {
+      profile.set({
+        name, email, phone,
+        college, branch, year
+      });
+    }
+
+    await profile.save();
+
+    res.json({ success: true, profile });
+
   } catch (error) {
     console.error('Profile Save Error:', error);
     res.status(500).json({ error: 'Failed to save profile' });
@@ -104,86 +112,71 @@ router.post('/profile', requireAuth, async (req, res) => {
 // RESUME ROUTES
 // ===============================
 
-// Upload resume
+// UPLOAD RESUME
 router.post('/resume/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const { userId } = req.body;
 
-    console.log('UPLOAD BODY:', req.body);
-    console.log('UPLOAD FILE:', req.file);
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+    let profile = await Profile.findOne({ userId });
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+    if (!profile) {
+      profile = new Profile({
+        userId,
+        resumes: []
+      });
     }
 
     const fileData = {
       fileId: req.file.filename,
       name: req.file.originalname,
       uploadDate: new Date(),
-      isActive: false,
+      isActive: true,
     };
 
-    // TODO: Save to database
-    // let profile = await Profile.findOne({ userId });
-    // if (!profile) {
-    //   profile = new Profile({ userId, resumes: [] });
-    // }
-    // if (!profile.resumes) profile.resumes = [];
-    // profile.resumes.push(fileData);
-    // await profile.save();
-
-    console.log('Resume uploaded:', fileData);
+    profile.resumes.push(fileData);
+    await profile.save();
 
     res.json({
       success: true,
       message: 'Resume uploaded successfully',
-      resumes: [fileData], // Return mock data
+      resumes: profile.resumes,
     });
 
   } catch (error) {
     console.error('Resume Upload Error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to upload resume',
-      details: error.message 
+      details: error.message,
     });
   }
 });
 
-// Delete resume
+// DELETE RESUME
 router.delete('/resume/:fileId', requireAuth, async (req, res) => {
   try {
     const { fileId } = req.params;
     const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
 
-    console.log('Deleting resume:', fileId, 'for user:', userId);
+    let profile = await Profile.findOne({ userId });
+    if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
-    // TODO: Remove from database
-    // let profile = await Profile.findOne({ userId });
-    // if (!profile) {
-    //   return res.status(404).json({ error: 'Profile not found' });
-    // }
-    // profile.resumes = profile.resumes.filter(r => r.fileId !== fileId);
-    // await profile.save();
+    // remove from DB
+    profile.resumes = profile.resumes.filter(r => r.fileId !== fileId);
+    await profile.save();
 
-    // Remove physical file
+    // delete file
     const filePath = path.join(uploadsDir, fileId);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      console.log('File deleted:', filePath);
-    }
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
     res.json({
       success: true,
       message: 'Resume deleted successfully',
-      resumes: [], // Return updated resumes
+      resumes: profile.resumes,
     });
 
   } catch (error) {
@@ -192,7 +185,7 @@ router.delete('/resume/:fileId', requireAuth, async (req, res) => {
   }
 });
 
-// Download resume
+// DOWNLOAD RESUME
 router.get('/resume/download/:fileId', requireAuth, async (req, res) => {
   try {
     const { fileId } = req.params;
@@ -202,7 +195,8 @@ router.get('/resume/download/:fileId', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    res.download(filePath);
+    return res.download(filePath);
+
   } catch (error) {
     console.error('Resume Download Error:', error);
     res.status(500).json({ error: 'Failed to download resume' });
@@ -215,10 +209,9 @@ router.get('/resume/download/:fileId', requireAuth, async (req, res) => {
 
 router.get('/off-campus/:userId', requireAuth, async (req, res) => {
   try {
-    // TODO: Fetch from database
     res.json([]);
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
@@ -226,33 +219,10 @@ router.get('/off-campus/:userId', requireAuth, async (req, res) => {
 router.post('/off-campus', requireAuth, async (req, res) => {
   try {
     console.log('Creating off-campus application:', req.body);
-    // TODO: Save to database
     res.json({ success: true, message: 'Application added' });
   } catch (error) {
-    console.error('Error:', error);
+    console.error(error);
     res.status(500).json({ error: 'Failed to add application' });
-  }
-});
-
-router.put('/off-campus/:id', requireAuth, async (req, res) => {
-  try {
-    console.log('Updating application:', req.params.id, req.body);
-    // TODO: Update in database
-    res.json({ success: true, message: 'Application updated' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to update application' });
-  }
-});
-
-router.delete('/off-campus/:id', requireAuth, async (req, res) => {
-  try {
-    console.log('Deleting application:', req.params.id);
-    // TODO: Delete from database
-    res.json({ success: true, message: 'Application deleted' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to delete application' });
   }
 });
 
@@ -264,38 +234,12 @@ router.get('/on-campus/:userId', requireAuth, async (req, res) => {
   try {
     res.json([]);
   } catch (error) {
-    console.error('Error:', error);
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
-router.get('/company-drives/:userId', requireAuth, async (req, res) => {
-  try {
-    res.json([]);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch drives' });
-  }
-});
-
-router.post('/company-drives', requireAuth, async (req, res) => {
-  try {
-    console.log('Creating company drive:', req.body);
-    res.json({ success: true, message: 'Drive added' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to add drive' });
-  }
-});
-
-router.delete('/company-drives/:id', requireAuth, async (req, res) => {
-  try {
-    console.log('Deleting drive:', req.params.id);
-    res.json({ success: true, message: 'Drive deleted' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to delete drive' });
-  }
-});
+// ===============================
+// EXPORT ROUTER
+// ===============================
 
 module.exports = router;
