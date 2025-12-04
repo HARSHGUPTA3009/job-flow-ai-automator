@@ -8,6 +8,9 @@ if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
 }
 
+const placementRoutes = require('./routes/placement');
+app.use('/api/placement', placementRoutes);
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {

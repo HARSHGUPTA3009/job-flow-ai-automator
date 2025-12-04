@@ -73,8 +73,9 @@ interface CompanyDrive {
   numberOfSelected: number;
   totalApplied: number;
 }
+
 // ============================================================================
-// RESUME MANAGER COMPONENT (UPDATED)
+// RESUME MANAGER COMPONENT
 // ============================================================================
 const ResumeManager: React.FC<{
   userId: string;
@@ -84,12 +85,27 @@ const ResumeManager: React.FC<{
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Upload resume
+  // Upload resume with validation
   const handleResumeUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please upload a PDF or Word document");
+      event.target.value = "";
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      event.target.value = "";
+      return;
+    }
 
     setUploading(true);
 
@@ -97,6 +113,8 @@ const ResumeManager: React.FC<{
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", userId);
+
+      console.log("Uploading resume for userId:", userId);
 
       const response = await fetch(
         `${API_BASE_URL}/api/placement/resume/upload`,
@@ -107,16 +125,19 @@ const ResumeManager: React.FC<{
         }
       );
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        console.log("Uploaded resumes:", data.resumes);
+        console.log("Upload successful:", data);
+        alert("Resume uploaded successfully!");
         onUpdate();
       } else {
-        alert("Failed to upload resume");
+        console.error("Upload failed:", data);
+        alert(data.error || "Failed to upload resume. Please try again.");
       }
     } catch (error) {
       console.error("Error uploading resume:", error);
-      alert("Error uploading resume");
+      alert("Network error. Please check your connection and try again.");
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -145,9 +166,11 @@ const ResumeManager: React.FC<{
       if (response.ok) {
         const data = await response.json();
         console.log("Deleted resumes:", data.resumes);
+        alert("Resume deleted successfully!");
         onUpdate();
       } else {
-        alert("Failed to delete resume");
+        const data = await response.json();
+        alert(data.error || "Failed to delete resume");
       }
     } catch (error) {
       console.error("Error deleting resume:", error);
@@ -197,17 +220,29 @@ const ResumeManager: React.FC<{
       {/* Upload */}
       <div className="mb-6">
         <Label htmlFor="resume-upload" className="text-gray-300 block mb-2">
-          Upload Resume (PDF/DOCX)
+          Upload Resume (PDF/DOCX, Max 5MB)
         </Label>
 
         <label
-          className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800 transition"
+          className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg transition ${
+            uploading 
+              ? "border-blue-500 bg-blue-900/20 cursor-wait" 
+              : "border-gray-600 bg-gray-800/50 hover:bg-gray-800 cursor-pointer"
+          }`}
         >
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <Upload className="w-8 h-8 mb-2 text-gray-400" />
-            <p className="text-sm text-gray-400">
-              {uploading ? "Uploading..." : "Click to upload or drag and drop"}
-            </p>
+            {uploading ? (
+              <>
+                <Loader2 className="w-8 h-8 mb-2 text-blue-400 animate-spin" />
+                <p className="text-sm text-blue-400">Uploading your resume...</p>
+              </>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                <p className="text-sm text-gray-400">Click to upload or drag and drop</p>
+                <p className="text-xs text-gray-500 mt-1">PDF, DOC, or DOCX (max 5MB)</p>
+              </>
+            )}
           </div>
 
           <input
@@ -255,12 +290,16 @@ const ResumeManager: React.FC<{
                   onClick={() => handleDeleteResume(resume.fileId)}
                   className={`px-3 py-2 rounded flex items-center gap-2 transition ${
                     deleting === resume.fileId
-                      ? "bg-red-800 text-white"
+                      ? "bg-red-800 text-white cursor-wait"
                       : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                   disabled={deleting === resume.fileId}
                 >
-                  <Trash2 size={16} />
+                  {deleting === resume.fileId ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
                   <span className="hidden sm:inline">
                     {deleting === resume.fileId ? "Deleting..." : "Delete"}
                   </span>
@@ -279,7 +318,6 @@ const ResumeManager: React.FC<{
     </Card>
   );
 };
-
 
 // ============================================================================
 // PROFILE MANAGER COMPONENT
@@ -327,10 +365,12 @@ const ProfileManager: React.FC<{
       });
 
       if (response.ok) {
+        alert('Profile saved successfully!');
         setIsEditing(false);
         onProfileUpdate();
       } else {
-        alert('Failed to save profile');
+        const data = await response.json();
+        alert(data.error || 'Failed to save profile');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -584,9 +624,11 @@ const OffCampusTracker: React.FC<{
       if (response.ok) {
         setFormData({ currency: 'INR', source: 'linkedin', status: 'applied' });
         setShowForm(false);
+        alert('Application added successfully!');
         onUpdate();
       } else {
-        alert('Failed to add application');
+        const data = await response.json();
+        alert(data.error || 'Failed to add application');
       }
     } catch (error) {
       console.error('Error adding application:', error);
@@ -606,9 +648,11 @@ const OffCampusTracker: React.FC<{
       });
 
       if (response.ok) {
+        alert('Application deleted successfully!');
         onUpdate();
       } else {
-        alert('Failed to delete application');
+        const data = await response.json();
+        alert(data.error || 'Failed to delete application');
       }
     } catch (error) {
       console.error('Error deleting application:', error);
@@ -628,7 +672,8 @@ const OffCampusTracker: React.FC<{
       if (response.ok) {
         onUpdate();
       } else {
-        alert('Failed to update status');
+        const data = await response.json();
+        alert(data.error || 'Failed to update status');
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -804,9 +849,11 @@ const OnCampusTracker: React.FC<{
       if (response.ok) {
         setDriveFormData({});
         setShowDriveForm(false);
+        alert('Company drive added successfully!');
         onUpdate();
       } else {
-        alert('Failed to add company drive');
+        const data = await response.json();
+        alert(data.error || 'Failed to add company drive');
       }
     } catch (error) {
       console.error('Error adding drive:', error);
@@ -826,9 +873,11 @@ const OnCampusTracker: React.FC<{
       });
 
       if (response.ok) {
+        alert('Company drive deleted successfully!');
         onUpdate();
       } else {
-        alert('Failed to delete drive');
+        const data = await response.json();
+        alert(data.error || 'Failed to delete drive');
       }
     } catch (error) {
       console.error('Error deleting drive:', error);
