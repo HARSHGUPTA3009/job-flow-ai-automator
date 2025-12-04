@@ -95,7 +95,7 @@ const ResumeManager: React.FC<{
       formData.append('file', file);
       formData.append('userId', userId);
 
-      const response = await fetch(`${API_BASE_URL}/api/placement/resume/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/resume/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -137,7 +137,7 @@ const ResumeManager: React.FC<{
 
   const handleDownloadResume = async (fileId: string, fileName: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/placement/resume/download/${fileId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/resume/download/${fileId}`, {
         credentials: 'include'
       });
 
