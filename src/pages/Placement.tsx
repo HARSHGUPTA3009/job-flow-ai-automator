@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Plus, Edit2, Trash2, TrendingUp, Users, Briefcase, CheckCircle, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Edit2, Trash2, TrendingUp, Users, Briefcase, CheckCircle, Loader2, Download, Upload } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 const API_BASE_URL = 'https://jobflow-backend-ai.onrender.com';
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
 
 interface UserProfile {
   userId: string;
@@ -29,7 +31,7 @@ interface UserProfile {
 
 interface Resume {
   name: string;
-  url: string;
+  fileId: string;
   uploadDate: string;
   isActive: boolean;
 }
@@ -73,6 +75,156 @@ interface CompanyDrive {
 }
 
 // ============================================================================
+// RESUME MANAGER COMPONENT
+// ============================================================================
+
+const ResumeManager: React.FC<{
+  userId: string;
+  resumes: Resume[];
+  onUpdate: () => void;
+}> = ({ userId, resumes, onUpdate }) => {
+  const [uploading, setUploading] = useState(false);
+
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', userId);
+
+      const response = await fetch(`${API_BASE_URL}/api/placement/resume/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+
+      if (response.ok) {
+        onUpdate();
+      } else {
+        alert('Failed to upload resume');
+      }
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      alert('Error uploading resume');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteResume = async (fileId: string) => {
+    if (!confirm('Are you sure you want to delete this resume?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/resume/${fileId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        body: JSON.stringify({ userId })
+      });
+
+      if (response.ok) {
+        onUpdate();
+      } else {
+        alert('Failed to delete resume');
+      }
+    } catch (error) {
+      console.error('Error deleting resume:', error);
+      alert('Error deleting resume');
+    }
+  };
+
+  const handleDownloadResume = async (fileId: string, fileName: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/placement/resume/download/${fileId}`, {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      alert('Error downloading resume');
+    }
+  };
+
+  return (
+    <Card className="bg-gray-900/50 border-gray-800 p-6 mb-8 backdrop-blur-xl">
+      <h3 className="text-xl font-bold text-white mb-4">Resume Management</h3>
+
+      <div className="mb-6">
+        <Label htmlFor="resume-upload" className="text-gray-300 block mb-2">
+          Upload Resume (PDF/DOCX)
+        </Label>
+        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800/50 hover:bg-gray-800 transition">
+          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+            <Upload className="w-8 h-8 mb-2 text-gray-400" />
+            <p className="text-sm text-gray-400">Click to upload or drag and drop</p>
+          </div>
+          <input
+            id="resume-upload"
+            type="file"
+            className="hidden"
+            accept=".pdf,.doc,.docx"
+            onChange={handleResumeUpload}
+            disabled={uploading}
+          />
+        </label>
+      </div>
+
+      {resumes && resumes.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-white font-semibold mb-3">Your Resumes</h4>
+          {resumes.map((resume, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between bg-gray-800/50 p-4 rounded border border-gray-700 hover:border-gray-600 transition"
+            >
+              <div className="flex-1">
+                <p className="text-white font-semibold">{resume.name}</p>
+                <p className="text-gray-400 text-sm">
+                  Uploaded: {new Date(resume.uploadDate).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDownloadResume(resume.fileId, resume.name)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded flex items-center gap-2 transition"
+                >
+                  <Download size={16} />
+                  <span className="hidden sm:inline">Download</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteResume(resume.fileId)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded flex items-center gap-2 transition"
+                >
+                  <Trash2 size={16} />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!resumes || resumes.length === 0 && (
+        <p className="text-gray-400 text-center py-4">No resumes uploaded yet. Upload one to get started!</p>
+      )}
+    </Card>
+  );
+};
+
+// ============================================================================
 // PROFILE MANAGER COMPONENT
 // ============================================================================
 
@@ -83,10 +235,9 @@ const ProfileManager: React.FC<{
 }> = ({ userId, profile, onProfileUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [skillInput, setSkillInput] = useState('');
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     skills: [],
-    preferredRoles: [],
-    preferredLocations: []
   });
 
   useEffect(() => {
@@ -94,6 +245,19 @@ const ProfileManager: React.FC<{
       setFormData(profile);
     }
   }, [profile]);
+
+  const handleAddSkill = () => {
+    if (skillInput.trim()) {
+      const newSkills = [...(formData.skills || []), skillInput.trim()];
+      setFormData({ ...formData, skills: newSkills });
+      setSkillInput('');
+    }
+  };
+
+  const handleRemoveSkill = (index: number) => {
+    const newSkills = formData.skills?.filter((_, i) => i !== index) || [];
+    setFormData({ ...formData, skills: newSkills });
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -121,7 +285,7 @@ const ProfileManager: React.FC<{
 
   if (!profile && !isEditing) {
     return (
-      <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8">
+      <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8 backdrop-blur-xl">
         <div className="text-center">
           <h3 className="text-2xl font-bold text-white mb-4">Create Your Profile</h3>
           <p className="text-gray-400 mb-6">Set up your placement profile to get started</p>
@@ -138,7 +302,7 @@ const ProfileManager: React.FC<{
 
   if (isEditing) {
     return (
-      <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8">
+      <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8 backdrop-blur-xl">
         <h3 className="text-2xl font-bold text-white mb-6">
           {profile ? 'Edit Profile' : 'Create Profile'}
         </h3>
@@ -208,16 +372,48 @@ const ProfileManager: React.FC<{
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
           />
         </div>
-        
+
+        {/* Skills Management */}
         <div className="mb-6">
-          <label className="text-white mb-2 block">Skills (comma-separated)</label>
-          <input
-            type="text"
-            placeholder="React, Node.js, MongoDB, etc"
-            value={formData.skills?.join(', ') || ''}
-            onChange={(e) => setFormData({ ...formData, skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-            className="w-full bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
-          />
+          <label className="text-white mb-3 block font-semibold">Skills</label>
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              placeholder="Enter a skill (e.g., React)"
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddSkill();
+                }
+              }}
+              className="flex-1 bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
+            />
+            <button
+              onClick={handleAddSkill}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded flex items-center gap-2 transition"
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Add</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.skills?.map((skill, idx) => (
+              <span
+                key={idx}
+                className="bg-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm flex items-center gap-2 border border-blue-500/50"
+              >
+                {skill}
+                <button
+                  onClick={() => handleRemoveSkill(idx)}
+                  className="hover:text-blue-100 font-bold"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
 
         <div className="flex gap-4">
@@ -242,11 +438,11 @@ const ProfileManager: React.FC<{
   }
 
   return (
-    <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8">
+    <Card className="bg-gray-900/50 border-gray-800 p-8 mb-8 backdrop-blur-xl">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h3 className="text-2xl font-bold text-white mb-1">{profile.name}</h3>
-          <p className="text-gray-400">{profile.email} | {profile.phone}</p>
+          <h3 className="text-2xl font-bold text-white mb-1">{profile?.name}</h3>
+          <p className="text-gray-400">{profile?.email} | {profile?.phone}</p>
         </div>
         <button
           onClick={() => setIsEditing(true)}
@@ -260,28 +456,28 @@ const ProfileManager: React.FC<{
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">College</p>
-          <p className="text-white font-semibold">{profile.college}</p>
+          <p className="text-white font-semibold">{profile?.college}</p>
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">Branch</p>
-          <p className="text-white font-semibold">{profile.branch}</p>
+          <p className="text-white font-semibold">{profile?.branch}</p>
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">CGPA</p>
-          <p className="text-white font-semibold">{profile.cgpa?.toFixed(2) || 'N/A'}</p>
+          <p className="text-white font-semibold">{profile?.cgpa?.toFixed(2) || 'N/A'}</p>
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">Year</p>
-          <p className="text-white font-semibold">Year {profile.year}</p>
+          <p className="text-white font-semibold">Year {profile?.year}</p>
         </div>
       </div>
 
-      {profile.skills && profile.skills.length > 0 && (
+      {profile?.skills && profile.skills.length > 0 && (
         <div className="mb-6">
           <h4 className="text-white font-semibold mb-3">Skills</h4>
           <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill, idx) => (
-              <span key={idx} className="bg-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm">
+              <span key={idx} className="bg-blue-600/30 text-blue-300 px-3 py-1 rounded-full text-sm border border-blue-500/50">
                 {skill}
               </span>
             ))}
@@ -399,7 +595,7 @@ const OffCampusTracker: React.FC<{
       </div>
 
       {showForm && (
-        <Card className="bg-gray-900/50 border-gray-800 p-6 mb-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 mb-6 backdrop-blur-xl">
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <input
               type="text"
@@ -597,7 +793,7 @@ const OnCampusTracker: React.FC<{
       </div>
 
       {showDriveForm && (
-        <Card className="bg-gray-900/50 border-gray-800 p-6 mb-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 mb-6 backdrop-blur-xl">
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <input
               type="text"
@@ -665,7 +861,7 @@ const OnCampusTracker: React.FC<{
 
       <div className="grid md:grid-cols-2 gap-6">
         {companyDrives.map((drive) => (
-          <Card key={drive._id} className="bg-gray-900/50 border-gray-800 p-6">
+          <Card key={drive._id} className="bg-gray-900/50 border-gray-800 p-6 backdrop-blur-xl">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
                 <h4 className="text-xl font-bold text-white">{drive.companyName}</h4>
@@ -765,7 +961,7 @@ const AnalyticsDashboard: React.FC<{
 
       {/* Key Metrics */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-700 p-6">
+        <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-700 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-300 text-sm mb-1">Total Applications</p>
@@ -776,7 +972,7 @@ const AnalyticsDashboard: React.FC<{
           </div>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 border-purple-700 p-6">
+        <Card className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 border-purple-700 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-300 text-sm mb-1">Response Rate</p>
@@ -787,7 +983,7 @@ const AnalyticsDashboard: React.FC<{
           </div>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-600/20 to-green-800/20 border-green-700 p-6">
+        <Card className="bg-gradient-to-br from-green-600/20 to-green-800/20 border-green-700 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-300 text-sm mb-1">Interviews</p>
@@ -798,7 +994,7 @@ const AnalyticsDashboard: React.FC<{
           </div>
         </Card>
 
-        <Card className="bg-gradient-to-br from-yellow-600/20 to-yellow-800/20 border-yellow-700 p-6">
+        <Card className="bg-gradient-to-br from-yellow-600/20 to-yellow-800/20 border-yellow-700 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-yellow-300 text-sm mb-1">Offers</p>
@@ -813,7 +1009,7 @@ const AnalyticsDashboard: React.FC<{
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
         {/* Status Distribution Pie Chart */}
-        <Card className="bg-gray-900/50 border-gray-800 p-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 backdrop-blur-xl">
           <h4 className="text-white font-semibold mb-4">Application Status Distribution</h4>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -837,7 +1033,7 @@ const AnalyticsDashboard: React.FC<{
         </Card>
 
         {/* Application Timeline */}
-        <Card className="bg-gray-900/50 border-gray-800 p-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 backdrop-blur-xl">
           <h4 className="text-white font-semibold mb-4">Applications (Last 7 Days)</h4>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={timelineData}>
@@ -863,7 +1059,7 @@ const AnalyticsDashboard: React.FC<{
       {/* Source Breakdown & Comparison */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Source Breakdown */}
-        <Card className="bg-gray-900/50 border-gray-800 p-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 backdrop-blur-xl">
           <h4 className="text-white font-semibold mb-4">Applications by Source</h4>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={sourceBreakdownData}>
@@ -880,7 +1076,7 @@ const AnalyticsDashboard: React.FC<{
         </Card>
 
         {/* On-Campus vs Off-Campus */}
-        <Card className="bg-gray-900/50 border-gray-800 p-6">
+        <Card className="bg-gray-900/50 border-gray-800 p-6 backdrop-blur-xl">
           <h4 className="text-white font-semibold mb-4">On-Campus vs Off-Campus</h4>
           <div className="space-y-4">
             <div>
@@ -927,48 +1123,25 @@ const AnalyticsDashboard: React.FC<{
 // MAIN PLACEMENT PAGE COMPONENT
 // ============================================================================
 
-export default function Placement() {
-  const navigate = useNavigate();
+function Placement({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string>('');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [offCampusApps, setOffCampusApps] = useState<OffCampusApplication[]>([]);
   const [onCampusApps, setOnCampusApps] = useState<OnCampusApplication[]>([]);
   const [companyDrives, setCompanyDrives] = useState<CompanyDrive[]>([]);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    loadAllData();
+  }, [user.id]);
 
-  const checkAuth = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/auth/status`, {
-        credentials: 'include'
-      });
-      const data = await res.json();
-
-      if (!data.authenticated) {
-        navigate('/signin');
-        return;
-      }
-
-      const uid = data.user?.id || data.user?.email || 'default-user';
-      setUserId(uid);
-      await loadAllData(uid);
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      navigate('/signin');
-    }
-  };
-
-  const loadAllData = async (uid: string) => {
+  const loadAllData = async () => {
     setLoading(true);
     try {
       const [profileRes, offCampusRes, onCampusRes, drivesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/placement/profile/${uid}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/placement/off-campus/${uid}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/placement/on-campus/${uid}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/placement/company-drives/${uid}`, { credentials: 'include' })
+        fetch(`${API_BASE_URL}/api/placement/profile/${user.id}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/off-campus/${user.id}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/on-campus/${user.id}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/company-drives/${user.id}`, { credentials: 'include' })
       ]);
 
       if (profileRes.ok) {
@@ -999,7 +1172,7 @@ export default function Placement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center pt-16">
         <div className="text-center">
           <Loader2 className="animate-spin text-blue-500 mx-auto mb-4" size={48} />
           <p className="text-white text-lg">Loading your placement data...</p>
@@ -1009,36 +1182,43 @@ export default function Placement() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white pt-24 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
             Placement Tracker
           </h1>
-          <p className="text-gray-400">Manage your campus and off-campus placements in one place</p>
+          <p className="text-gray-400">Manage your profile, resumes, and applications in one place</p>
         </div>
 
         {/* Profile Section */}
         <ProfileManager 
-          userId={userId}
+          userId={user.id}
           profile={profile} 
-          onProfileUpdate={() => loadAllData(userId)}
+          onProfileUpdate={loadAllData}
+        />
+
+        {/* Resume Manager */}
+        <ResumeManager 
+          userId={user.id}
+          resumes={profile?.resumes || []}
+          onUpdate={loadAllData}
         />
 
         {/* Off-Campus Tracker */}
         <OffCampusTracker 
-          userId={userId}
+          userId={user.id}
           applications={offCampusApps} 
-          onUpdate={() => loadAllData(userId)}
+          onUpdate={loadAllData}
         />
 
         {/* On-Campus Tracker */}
         <OnCampusTracker 
-          userId={userId}
+          userId={user.id}
           applications={onCampusApps}
           companyDrives={companyDrives}
           userCGPA={profile?.cgpa || 0}
-          onUpdate={() => loadAllData(userId)}
+          onUpdate={loadAllData}
         />
 
         {/* Analytics Dashboard */}
@@ -1050,3 +1230,5 @@ export default function Placement() {
     </div>
   );
 }
+
+export default Placement;

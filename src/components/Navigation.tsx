@@ -1,67 +1,203 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Menu, X, LogOut, LayoutDashboard, Briefcase, Home } from "lucide-react";
 
-export const Navigation = () => {
+interface NavigationProps {
+  user: { id: string; email: string; name?: string } | null;
+  onLogout: () => void;
+}
+
+export const Navigation = ({ user, onLogout }: NavigationProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await fetch("https://jobflow-backend-ai.onrender.com/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      onLogout();
+      navigate("/");
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-              AutoJob Flow
-            </Link>
-          </div>
           
-        
+          {/* Logo */}
+          <Link
+            to="/"
+            className="text-2xl font-bold text-gray-200 hover:text-white transition"
+          >
+            AutoJob Flow
+          </Link>
 
+          {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link to="/signin">
-              <Button variant="ghost" className="text-gray-300 hover:text-white">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Get Started
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                <Link to="/">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white flex items-center gap-2"
+                  >
+                    <Home size={16} />
+                    Home
+                  </Button>
+                </Link>
+
+                <Link to="/dashboard">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white flex items-center gap-2"
+                  >
+                    <LayoutDashboard size={16} />
+                    Dashboard
+                  </Button>
+                </Link>
+
+                <Link to="/placements">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white flex items-center gap-2"
+                  >
+                    <Briefcase size={16} />
+                    Placements
+                  </Button>
+                </Link>
+
+                <div className="flex items-center space-x-4 pl-4 border-l border-gray-700">
+                  <span className="text-gray-400 text-sm">
+                    {user.name || user.email}
+                  </span>
+
+                  <Button
+                    onClick={handleSignOut}
+                    className="bg-gray-200 text-black hover:bg-white flex items-center gap-2"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white"
+                  >
+                    Sign In
+                  </Button>
+                </Link>
+
+                <Link to="/signin">
+                  <Button className="bg-gray-200 text-black hover:bg-white font-semibold">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-300 hover:text-white"
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              {isOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-black/95 backdrop-blur-xl">
+        <div className="md:hidden bg-black/95 backdrop-blur-xl border-b border-gray-800">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            <a href="#features" className="block px-3 py-2 text-gray-300 hover:text-white">Features</a>
-            <a href="#pricing" className="block px-3 py-2 text-gray-300 hover:text-white">Pricing</a>
-            <a href="#about" className="block px-3 py-2 text-gray-300 hover:text-white">About</a>
-            <div className="pt-4 pb-2 space-y-2">
-              <Link to="/signin">
-                <Button variant="ghost" className="w-full text-black-900 hover:text-black-700">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/signin">
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  Get Started
-                </Button>
-              </Link>
-            </div>
+            {user ? (
+              <>
+                <Link to="/">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Home size={16} className="mr-2" />
+                    Home
+                  </Button>
+                </Link>
+
+                <Link to="/dashboard">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <LayoutDashboard size={16} className="mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
+
+                <Link to="/placements">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Briefcase size={16} className="mr-2" />
+                    Placements
+                  </Button>
+                </Link>
+
+                <div className="pt-4 pb-2 space-y-2 border-t border-gray-700">
+                  <p className="text-gray-400 text-sm px-3 py-2">
+                    {user.name || user.email}
+                  </p>
+
+                  <Button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsOpen(false);
+                    }}
+                    className="w-full bg-gray-200 text-black hover:bg-white"
+                  >
+                    <LogOut size={16} className="mr-2" />
+                    Sign Out
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Sign In
+                  </Button>
+                </Link>
+
+                <Link to="/signin">
+                  <Button className="w-full bg-gray-200 text-black hover:bg-white font-semibold">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

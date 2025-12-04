@@ -27,13 +27,9 @@ export const Hero = () => {
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
           <Link to="/signin">
-            <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4 h-auto">
-              Start Free Trial
-            </Button>
+            
           </Link>
-          <Button size="lg" variant="outline" className="!bg-white border-gray-600 text-black-300 hover:text-black hover:border-gray-500 hover:bg-white-400 text-lg px-8 py-4 h-auto">
-            Watch Demo
-          </Button>
+          
         </div>
 
         <div className="animate-bounce">
