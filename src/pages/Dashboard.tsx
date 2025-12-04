@@ -221,7 +221,7 @@ const Dashboard = () => {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  navigate("/placement");
+                  navigate("/placements");
                   setMenuOpen(false);
                 }}
                 className="w-full text-gray-300 hover:text-white hover:bg-gray-800 flex items-center gap-2 justify-start"

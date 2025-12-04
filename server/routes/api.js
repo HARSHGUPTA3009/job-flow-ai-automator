@@ -54,15 +54,17 @@ router.post('/ats-check', requireAuth, upload.single('resume'), async (req, res)
     res.status(500).json({ error: 'Failed to process resume' });
   }
 });
-
 // ===============================
 // RESUME ROUTES
 // ===============================
-// Upload resume
+
 // Upload resume
 router.post('/resume/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     const { userId } = req.body;
+
+    console.log("UPLOAD BODY:", req.body);
+    console.log("UPLOAD FILE:", req.file);
 
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -79,14 +81,20 @@ router.post('/resume/upload', requireAuth, upload.single('file'), async (req, re
       isActive: false,
     };
 
-    // 👉 Save to user profile
-    const profile = await Profile.findOne({ userId });
+    // 👉 Try to find profile by userId (string id)
+    let profile = await Profile.findOne({ userId });
+
+    // 👉 If not found, try by MongoDB _id
+    if (!profile) {
+      profile = await Profile.findById(userId);
+    }
 
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
 
     if (!profile.resumes) profile.resumes = [];
+
     profile.resumes.push(fileData);
 
     await profile.save();
@@ -94,7 +102,7 @@ router.post('/resume/upload', requireAuth, upload.single('file'), async (req, re
     res.json({
       success: true,
       message: 'Resume uploaded successfully',
-      resumes: profile.resumes,   // 👈 send updated list
+      resumes: profile.resumes,
     });
 
   } catch (error) {
@@ -102,27 +110,47 @@ router.post('/resume/upload', requireAuth, upload.single('file'), async (req, re
     res.status(500).json({ error: 'Failed to upload resume' });
   }
 });
+
+
+// Delete resume
 router.delete('/resume/:fileId', requireAuth, async (req, res) => {
   try {
     const { fileId } = req.params;
-    const userId = req.user._id || req.body.userId;
+    const userId = req.user?._id?.toString() || req.body.userId;
 
-    const profile = await Profile.findOne({ userId });
+    if (!userId) {
+      return res.status(400).json({ error: "userId missing" });
+    }
+
+    // 👉 Try by userId field
+    let profile = await Profile.findOne({ userId });
+
+    // 👉 fallback to _id
+    if (!profile) {
+      profile = await Profile.findById(userId);
+    }
 
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }
 
+    // Remove from array
     profile.resumes = profile.resumes.filter(r => r.fileId !== fileId);
 
     await profile.save();
 
-    // delete physical file...
-    
+    // Remove physical file
+    const fs = require('fs');
+    const filePath = `uploads/${fileId}`;
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
     res.json({
       success: true,
       message: 'Resume deleted',
-      resumes: profile.resumes, // 👈 send updated list
+      resumes: profile.resumes,
     });
 
   } catch (error) {
@@ -131,17 +159,32 @@ router.delete('/resume/:fileId', requireAuth, async (req, res) => {
   }
 });
 
+
+// Get profile WITH resumes
 router.get('/profile/:userId', requireAuth, async (req, res) => {
-  const { userId } = req.params;
+  try {
+    const { userId } = req.params;
 
-  const profile = await Profile.findOne({ userId });
+    // Try by custom field
+    let profile = await Profile.findOne({ userId });
 
-  if (!profile) {
-    return res.json(null);
+    // Try by _id
+    if (!profile) {
+      profile = await Profile.findById(userId);
+    }
+
+    if (!profile) {
+      return res.json(null);
+    }
+
+    return res.json(profile);
+
+  } catch (error) {
+    console.error("Profile Fetch Error:", error);
+    res.status(500).json({ error: "Failed to fetch profile" });
   }
-
-  return res.json(profile); // 👈 includes profile.resumes automatically
 });
+
 
 
 
