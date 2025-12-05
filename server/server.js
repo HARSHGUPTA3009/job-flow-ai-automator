@@ -3,6 +3,8 @@ const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const { GridFSBucket } = require('mongodb');
 require('dotenv').config();
 
 // Import routes
@@ -40,7 +42,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ============================================================================
-// DATABASE CONNECTION (INLINE)
+// DATABASE CONNECTION
 // ============================================================================
 
 const connectDB = async () => {
@@ -71,27 +73,52 @@ try {
 // ============================================================================
 
 const ResumeSchema = new mongoose.Schema({
-  name: String,
-  url: String,
+  fileId: { type: String, required: true },
+  name: { type: String, required: true },
   uploadDate: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: false }
 });
 
+// URL validator - more lenient
+const urlRegex = /^https?:\/\/.+/i;
+
 const UserProfileSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true },
-  name: String,
-  email: { type: String, required: true },
-  phone: String,
-  college: String,
-  branch: String,
-  year: Number,
-  cgpa: Number,
-  skills: [String],
-  resumes: [ResumeSchema],
-  linkedIn: String,
-  github: String,
-  preferredRoles: [String],
-  preferredLocations: [String],
+  userId: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true, trim: true },
+  email: { type: String, required: true, trim: true, lowercase: true },
+  phone: { type: String, required: true },
+  college: { type: String, required: true, trim: true },
+  branch: { type: String, required: true, trim: true },
+  year: { type: Number, required: true, min: 1, max: 5 },
+  cgpa: { type: Number, required: true, min: 0, max: 10 },
+  skills: { type: [String], default: [] },
+  resumes: { type: [ResumeSchema], default: [] },
+  linkedIn: { 
+    type: String, 
+    default: "",
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v || v === "") return true;
+        return urlRegex.test(v);
+      },
+      message: "Invalid LinkedIn URL. Must start with http:// or https://"
+    }
+  },
+  github: { 
+    type: String, 
+    default: "",
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v || v === "") return true;
+        return urlRegex.test(v);
+      },
+      message: "Invalid GitHub URL. Must start with http:// or https://"
+    }
+  },
+  preferredRoles: { type: [String], default: [] },
+  preferredLocations: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -103,15 +130,15 @@ const OffCampusApplicationSchema = new mongoose.Schema({
   jobLink: String,
   salary: Number,
   currency: { type: String, default: 'INR' },
-  appliedDate: { type: Date, default: Date.now },
-  statusUpdatedDate: { type: Date, default: Date.now },
+  appliedDate: { type: String, required: true },
+  statusUpdatedDate: { type: String, default: () => new Date().toISOString().split('T')[0] },
   status: {
     type: String,
     enum: ['applied', 'screening', 'interview', 'offer', 'rejected', 'accepted'],
     default: 'applied'
   },
   notes: String,
-  followUpDates: [Date],
+  followUpDates: [String],
   source: {
     type: String,
     enum: ['linkedin', 'indeed', 'naukri', 'direct', 'other'],
@@ -124,7 +151,7 @@ const OnCampusApplicationSchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
   companyName: { type: String, required: true },
   role: String,
-  appliedDate: { type: Date, default: Date.now },
+  appliedDate: { type: String },
   status: {
     type: String,
     enum: ['applied', 'shortlisted', 'interview_1', 'interview_2', 'interview_3', 'rejected', 'offer'],
@@ -141,8 +168,8 @@ const CompanyDriveSchema = new mongoose.Schema({
   companyName: { type: String, required: true },
   roles: [String],
   cutoffCGPA: Number,
-  batchDate: Date,
-  resultsDate: Date,
+  batchDate: String,
+  resultsDate: String,
   averagePackage: Number,
   numberOfSelected: Number,
   totalApplied: Number,
@@ -154,6 +181,28 @@ const UserProfile = mongoose.model('UserProfile', UserProfileSchema);
 const OffCampusApplication = mongoose.model('OffCampusApplication', OffCampusApplicationSchema);
 const OnCampusApplication = mongoose.model('OnCampusApplication', OnCampusApplicationSchema);
 const CompanyDrive = mongoose.model('CompanyDrive', CompanyDriveSchema);
+
+// ============================================================================
+// MULTER CONFIGURATION FOR FILE UPLOADS
+// ============================================================================
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'));
+    }
+  }
+});
 
 // ============================================================================
 // ROUTES - EXISTING
@@ -175,18 +224,21 @@ app.use('/api/chatbot', chatbotRoutes);
 // PLACEMENT TRACKER API ROUTES
 // ============================================================================
 
+// ============================================================================
 // USER PROFILE ROUTES
+// ============================================================================
+
 // Get user profile
 app.get('/api/placement/profile/:userId', async (req, res) => {
   try {
     const profile = await UserProfile.findOne({ userId: req.params.userId });
     if (!profile) {
-      return res.status(404).json({ message: 'Profile not found' });
+      return res.status(404).json({ error: 'Profile not found' });
     }
     res.json(profile);
   } catch (error) {
     console.error('Error fetching profile:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
@@ -196,28 +248,190 @@ app.post('/api/placement/profile', async (req, res) => {
     const { userId, ...profileData } = req.body;
     
     if (!userId) {
-      return res.status(400).json({ message: 'userId is required' });
+      return res.status(400).json({ error: 'userId is required' });
     }
 
-    let profile = await UserProfile.findOne({ userId });
-    
-    if (profile) {
-      Object.assign(profile, profileData);
-      profile.updatedAt = new Date();
-      await profile.save();
-    } else {
-      profile = new UserProfile({ userId, ...profileData });
-      await profile.save();
+    // Validate required fields
+    const requiredFields = ['name', 'email', 'phone', 'college', 'branch', 'year', 'cgpa'];
+    for (const field of requiredFields) {
+      if (!profileData[field] && profileData[field] !== 0) {
+        return res.status(400).json({ error: `${field} is required` });
+      }
     }
-    
+
+    // Update or create profile
+    const profile = await UserProfile.findOneAndUpdate(
+      { userId },
+      { userId, ...profileData, updatedAt: new Date() },
+      { new: true, upsert: true, runValidators: true }
+    );
+
     res.json(profile);
   } catch (error) {
     console.error('Error saving profile:', error);
-    res.status(500).json({ message: error.message });
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ error: messages.join(', ') });
+    }
+    res.status(500).json({ error: 'Failed to save profile' });
   }
 });
 
+// ============================================================================
+// RESUME UPLOAD/DOWNLOAD ROUTES
+// ============================================================================
+
+// Upload resume
+app.post('/api/placement/resume/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const file = req.file;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Initialize GridFS
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
+
+    // Upload to GridFS
+    const uploadStream = bucket.openUploadStream(file.originalname, {
+      contentType: file.mimetype,
+      metadata: { userId }
+    });
+
+    uploadStream.end(file.buffer);
+
+    uploadStream.on('finish', async () => {
+      try {
+        // Add resume to profile
+        const profile = await UserProfile.findOneAndUpdate(
+          { userId },
+          {
+            $push: {
+              resumes: {
+                fileId: uploadStream.id.toString(),
+                name: file.originalname,
+                uploadDate: new Date(),
+                isActive: false
+              }
+            }
+          },
+          { new: true, upsert: true }
+        );
+
+        res.json({
+          message: 'Resume uploaded successfully',
+          fileId: uploadStream.id.toString(),
+          resumes: profile.resumes
+        });
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
+      }
+    });
+
+    uploadStream.on('error', (error) => {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Failed to upload file' });
+    });
+
+  } catch (error) {
+    console.error('Error uploading resume:', error);
+    res.status(500).json({ error: 'Failed to upload resume' });
+  }
+});
+
+// Delete resume
+app.delete('/api/placement/resume/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Delete from GridFS
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
+    
+    try {
+      await bucket.delete(new mongoose.Types.ObjectId(fileId));
+    } catch (err) {
+      console.error('GridFS delete error:', err);
+      // Continue even if file not found in GridFS
+    }
+
+    // Remove from profile
+    const profile = await UserProfile.findOneAndUpdate(
+      { userId },
+      { $pull: { resumes: { fileId } } },
+      { new: true }
+    );
+
+    res.json({
+      message: 'Resume deleted successfully',
+      resumes: profile?.resumes || []
+    });
+  } catch (error) {
+    console.error('Error deleting resume:', error);
+    res.status(500).json({ error: 'Failed to delete resume' });
+  }
+});
+
+// Download resume
+app.get('/api/placement/resume/download/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
+
+    // Get file info first to set headers
+    const files = await db.collection('resumes.files').find({ 
+      _id: new mongoose.Types.ObjectId(fileId) 
+    }).toArray();
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const file = files[0];
+    
+    // Set headers
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': `attachment; filename="${file.filename}"`
+    });
+
+    const downloadStream = bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+
+    downloadStream.on('error', (error) => {
+      console.error('Download error:', error);
+      if (!res.headersSent) {
+        res.status(404).json({ error: 'File not found' });
+      }
+    });
+
+    downloadStream.pipe(res);
+  } catch (error) {
+    console.error('Error downloading resume:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to download resume' });
+    }
+  }
+});
+
+// ============================================================================
 // OFF-CAMPUS APPLICATION ROUTES
+// ============================================================================
+
 // Get all off-campus applications for a user
 app.get('/api/placement/off-campus/:userId', async (req, res) => {
   try {
@@ -227,7 +441,7 @@ app.get('/api/placement/off-campus/:userId', async (req, res) => {
     res.json(applications);
   } catch (error) {
     console.error('Error fetching off-campus applications:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
@@ -236,7 +450,7 @@ app.post('/api/placement/off-campus', async (req, res) => {
   try {
     if (!req.body.userId || !req.body.company || !req.body.jobTitle) {
       return res.status(400).json({ 
-        message: 'userId, company, and jobTitle are required' 
+        error: 'userId, company, and jobTitle are required' 
       });
     }
 
@@ -245,7 +459,7 @@ app.post('/api/placement/off-campus', async (req, res) => {
     res.status(201).json(application);
   } catch (error) {
     console.error('Error creating off-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to create application' });
   }
 });
 
@@ -254,18 +468,21 @@ app.put('/api/placement/off-campus/:id', async (req, res) => {
   try {
     const application = await OffCampusApplication.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, statusUpdatedDate: new Date() },
+      { 
+        ...req.body, 
+        statusUpdatedDate: new Date().toISOString().split('T')[0] 
+      },
       { new: true, runValidators: true }
     );
     
     if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
+      return res.status(404).json({ error: 'Application not found' });
     }
     
     res.json(application);
   } catch (error) {
     console.error('Error updating off-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to update application' });
   }
 });
 
@@ -275,17 +492,20 @@ app.delete('/api/placement/off-campus/:id', async (req, res) => {
     const application = await OffCampusApplication.findByIdAndDelete(req.params.id);
     
     if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
+      return res.status(404).json({ error: 'Application not found' });
     }
     
     res.json({ message: 'Application deleted successfully' });
   } catch (error) {
     console.error('Error deleting off-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to delete application' });
   }
 });
 
+// ============================================================================
 // ON-CAMPUS APPLICATION ROUTES
+// ============================================================================
+
 // Get all on-campus applications for a user
 app.get('/api/placement/on-campus/:userId', async (req, res) => {
   try {
@@ -295,7 +515,7 @@ app.get('/api/placement/on-campus/:userId', async (req, res) => {
     res.json(applications);
   } catch (error) {
     console.error('Error fetching on-campus applications:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
@@ -304,7 +524,7 @@ app.post('/api/placement/on-campus', async (req, res) => {
   try {
     if (!req.body.userId || !req.body.companyName) {
       return res.status(400).json({ 
-        message: 'userId and companyName are required' 
+        error: 'userId and companyName are required' 
       });
     }
 
@@ -313,7 +533,7 @@ app.post('/api/placement/on-campus', async (req, res) => {
     res.status(201).json(application);
   } catch (error) {
     console.error('Error creating on-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to create application' });
   }
 });
 
@@ -327,13 +547,13 @@ app.put('/api/placement/on-campus/:id', async (req, res) => {
     );
     
     if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
+      return res.status(404).json({ error: 'Application not found' });
     }
     
     res.json(application);
   } catch (error) {
     console.error('Error updating on-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to update application' });
   }
 });
 
@@ -343,27 +563,30 @@ app.delete('/api/placement/on-campus/:id', async (req, res) => {
     const application = await OnCampusApplication.findByIdAndDelete(req.params.id);
     
     if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
+      return res.status(404).json({ error: 'Application not found' });
     }
     
     res.json({ message: 'Application deleted successfully' });
   } catch (error) {
     console.error('Error deleting on-campus application:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to delete application' });
   }
 });
 
+// ============================================================================
 // COMPANY DRIVE ROUTES
+// ============================================================================
+
 // Get all company drives for a user
 app.get('/api/placement/company-drives/:userId', async (req, res) => {
   try {
     const drives = await CompanyDrive.find({ 
       userId: req.params.userId 
-    }).sort({ batchDate: -1 });
+    }).sort({ createdAt: -1 });
     res.json(drives);
   } catch (error) {
     console.error('Error fetching company drives:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to fetch company drives' });
   }
 });
 
@@ -372,7 +595,7 @@ app.post('/api/placement/company-drives', async (req, res) => {
   try {
     if (!req.body.userId || !req.body.companyName) {
       return res.status(400).json({ 
-        message: 'userId and companyName are required' 
+        error: 'userId and companyName are required' 
       });
     }
 
@@ -381,7 +604,7 @@ app.post('/api/placement/company-drives', async (req, res) => {
     res.status(201).json(drive);
   } catch (error) {
     console.error('Error creating company drive:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to create company drive' });
   }
 });
 
@@ -395,13 +618,13 @@ app.put('/api/placement/company-drives/:id', async (req, res) => {
     );
     
     if (!drive) {
-      return res.status(404).json({ message: 'Company drive not found' });
+      return res.status(404).json({ error: 'Company drive not found' });
     }
     
     res.json(drive);
   } catch (error) {
     console.error('Error updating company drive:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to update company drive' });
   }
 });
 
@@ -411,17 +634,20 @@ app.delete('/api/placement/company-drives/:id', async (req, res) => {
     const drive = await CompanyDrive.findByIdAndDelete(req.params.id);
     
     if (!drive) {
-      return res.status(404).json({ message: 'Company drive not found' });
+      return res.status(404).json({ error: 'Company drive not found' });
     }
     
     res.json({ message: 'Company drive deleted successfully' });
   } catch (error) {
     console.error('Error deleting company drive:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to delete company drive' });
   }
 });
 
+// ============================================================================
 // ANALYTICS ENDPOINT
+// ============================================================================
+
 app.get('/api/placement/analytics/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -463,7 +689,7 @@ app.get('/api/placement/analytics/:userId', async (req, res) => {
     res.json(analytics);
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
 
@@ -474,7 +700,7 @@ app.get('/api/placement/analytics/:userId', async (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'AutoJob Flow API Server is running!',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       auth: '/auth',
       gmail: '/gmail',
@@ -540,19 +766,22 @@ app.listen(PORT, () => {
 ╔════════════════════════════════════════════════════════════╗
 ║       🚀 AutoJob Flow API Server Started                   ║
 ║                                                            ║
-║  Port: ${PORT}                                              ║
-║  Environment: ${process.env.NODE_ENV || 'development'}                           ║
-║  MongoDB: ${mongoose.connection.readyState === 1 ? '✅ Connected' : '⚠️  Disconnected'}                                  ║
+║  Port: ${PORT.toString().padEnd(48)}║
+║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(41)}║
+║  MongoDB: ${(mongoose.connection.readyState === 1 ? '✅ Connected' : '⚠️  Disconnected').padEnd(44)}║
 ║                                                            ║
 ║  Features:                                                 ║
 ║    ✅ Authentication (Passport)                            ║
 ║    ✅ Gmail Integration                                    ║
 ║    ✅ API Routes                                           ║
 ║    ✅ AI Chatbot with RAG                                  ║
-║    ✅ Placement Tracking                                   ║
+║    ✅ Placement Tracking with Resume Upload                ║
 ║                                                            ║
 ║  Placement Endpoints:                                      ║
 ║    GET/POST /api/placement/profile/:userId                 ║
+║    POST    /api/placement/resume/upload                    ║
+║    DELETE  /api/placement/resume/:fileId                   ║
+║    GET     /api/placement/resume/download/:fileId          ║
 ║    CRUD    /api/placement/off-campus                       ║
 ║    CRUD    /api/placement/on-campus                        ║
 ║    CRUD    /api/placement/company-drives                   ║
