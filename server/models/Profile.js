@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
-// URL validator
-const urlRegex = /^https?:\/\/[^\s$.?#].[^\s]*$/i;
+// URL validator - more lenient
+const urlRegex = /^https?:\/\/.+/i;
 
 // Phone validator (simple international E.164)
 const phoneRegex = /^\+?[0-9]{8,15}$/;
@@ -19,7 +19,6 @@ const ResumeSchema = new mongoose.Schema({
   uploadDate: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: false },
 });
-
 
 // Main Profile Schema
 const ProfileSchema = new mongoose.Schema(
@@ -49,8 +48,7 @@ const ProfileSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       validate: {
-        validator: (v) =>
-          /^\S+@\S+\.\S+$/.test(v),
+        validator: (v) => /^\S+@\S+\.\S+$/.test(v),
         message: "Invalid email format",
       },
     },
@@ -60,8 +58,7 @@ const ProfileSchema = new mongoose.Schema(
       required: [true, "Phone number is required"],
       validate: {
         validator: (v) => phoneRegex.test(v),
-        message:
-          "Invalid phone number format. Use +123456789 or 10–15 digits.",
+        message: "Invalid phone number format. Use +123456789 or 10–15 digits.",
       },
     },
 
@@ -104,14 +101,19 @@ const ProfileSchema = new mongoose.Schema(
       max: [10, "CGPA cannot be above 10"],
     },
 
-    // OPTIONAL URL FIELDS
+    // OPTIONAL URL FIELDS - More lenient validation
     linkedIn: {
       type: String,
       default: "",
       trim: true,
       validate: {
-        validator: (v) => !v || urlRegex.test(v),
-        message: "Invalid LinkedIn URL",
+        validator: function(v) {
+          // Allow empty strings
+          if (!v || v === "") return true;
+          // Must start with http:// or https://
+          return urlRegex.test(v);
+        },
+        message: "Invalid LinkedIn URL. Must start with http:// or https://",
       },
     },
 
@@ -120,8 +122,13 @@ const ProfileSchema = new mongoose.Schema(
       default: "",
       trim: true,
       validate: {
-        validator: (v) => !v || urlRegex.test(v),
-        message: "Invalid GitHub URL",
+        validator: function(v) {
+          // Allow empty strings
+          if (!v || v === "") return true;
+          // Must start with http:// or https://
+          return urlRegex.test(v);
+        },
+        message: "Invalid GitHub URL. Must start with http:// or https://",
       },
     },
 
