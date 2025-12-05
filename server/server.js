@@ -72,56 +72,7 @@ try {
 // MONGOOSE SCHEMAS FOR PLACEMENT TRACKER
 // ============================================================================
 
-const ResumeSchema = new mongoose.Schema({
-  fileId: { type: String, required: true },
-  name: { type: String, required: true },
-  uploadDate: { type: Date, default: Date.now },
-  isActive: { type: Boolean, default: false }
-});
-
-// URL validator - more lenient
-const urlRegex = /^https?:\/\/.+/i;
-
-const UserProfileSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true, index: true },
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, trim: true, lowercase: true },
-  phone: { type: String, required: true },
-  college: { type: String, required: true, trim: true },
-  branch: { type: String, required: true, trim: true },
-  year: { type: Number, required: true, min: 1, max: 5 },
-  cgpa: { type: Number, required: true, min: 0, max: 10 },
-  skills: { type: [String], default: [] },
-  resumes: { type: [ResumeSchema], default: [] },
-  linkedIn: { 
-    type: String, 
-    default: "",
-    trim: true,
-    validate: {
-      validator: function(v) {
-        if (!v || v === "") return true;
-        return urlRegex.test(v);
-      },
-      message: "Invalid LinkedIn URL. Must start with http:// or https://"
-    }
-  },
-  github: { 
-    type: String, 
-    default: "",
-    trim: true,
-    validate: {
-      validator: function(v) {
-        if (!v || v === "") return true;
-        return urlRegex.test(v);
-      },
-      message: "Invalid GitHub URL. Must start with http:// or https://"
-    }
-  },
-  preferredRoles: { type: [String], default: [] },
-  preferredLocations: { type: [String], default: [] },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
+// NOTE: Profile schema (with ResumeSchema + validators) lives in ./models/Profile.js
 
 const OffCampusApplicationSchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
@@ -177,7 +128,7 @@ const CompanyDriveSchema = new mongoose.Schema({
 });
 
 // Models
-const UserProfile = mongoose.model('UserProfile', UserProfileSchema);
+const Profile = require("./models/Profile");
 const OffCampusApplication = mongoose.model('OffCampusApplication', OffCampusApplicationSchema);
 const OnCampusApplication = mongoose.model('OnCampusApplication', OnCampusApplicationSchema);
 const CompanyDrive = mongoose.model('CompanyDrive', CompanyDriveSchema);
@@ -231,7 +182,7 @@ app.use('/api/chatbot', chatbotRoutes);
 // Get user profile
 app.get('/api/placement/profile/:userId', async (req, res) => {
   try {
-    const profile = await UserProfile.findOne({ userId: req.params.userId });
+    const profile = await Profile.findOne({ userId: req.params.userId });
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -259,8 +210,8 @@ app.post('/api/placement/profile', async (req, res) => {
       }
     }
 
-    // Update or create profile
-    const profile = await UserProfile.findOneAndUpdate(
+    // Update or create profile (uses validators from ./models/Profile.js)
+    const profile = await Profile.findOneAndUpdate(
       { userId },
       { userId, ...profileData, updatedAt: new Date() },
       { new: true, upsert: true, runValidators: true }
@@ -310,7 +261,7 @@ app.post('/api/placement/resume/upload', upload.single('file'), async (req, res)
     uploadStream.on('finish', async () => {
       try {
         // Add resume to profile
-        const profile = await UserProfile.findOneAndUpdate(
+        const profile = await Profile.findOneAndUpdate(
           { userId },
           {
             $push: {
@@ -369,7 +320,7 @@ app.delete('/api/placement/resume/:fileId', async (req, res) => {
     }
 
     // Remove from profile
-    const profile = await UserProfile.findOneAndUpdate(
+    const profile = await Profile.findOneAndUpdate(
       { userId },
       { $pull: { resumes: { fileId } } },
       { new: true }
@@ -655,7 +606,7 @@ app.get('/api/placement/analytics/:userId', async (req, res) => {
     const [offCampusApps, onCampusApps, profile] = await Promise.all([
       OffCampusApplication.find({ userId }),
       OnCampusApplication.find({ userId }),
-      UserProfile.findOne({ userId })
+      Profile.findOne({ userId })
     ]);
 
     const analytics = {
