@@ -466,11 +466,18 @@ const ProfileManager: React.FC<{
           <input
             type="number"
             placeholder="CGPA"
-            value={formData.cgpa || ''}
-            onChange={(e) => setFormData({ ...formData, cgpa: parseFloat(e.target.value) })}
+            value={formData.cgpa ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFormData({
+                ...formData,
+                cgpa: v === "" ? null : parseFloat(v),
+              });
+            }}
             className="bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 outline-none"
-            step="0.1"
+            step="0.01"
           />
+
           <input
             type="text"
             placeholder="LinkedIn Profile"
@@ -578,11 +585,16 @@ const ProfileManager: React.FC<{
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">CGPA</p>
-          <p className="text-white font-semibold">{profile?.cgpa?.toFixed(2) || 'N/A'}</p>
+         <p className="text-white font-semibold">
+          {profile?.cgpa != null
+            ? profile.cgpa.toFixed(3)
+            : "N/A"}
+        </p>
+
         </div>
         <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
           <p className="text-gray-400 text-sm">Year</p>
-          <p className="text-white font-semibold">Year {profile?.year}</p>
+          <p className="text-white font-semibold"> {profile?.year} Year</p>
         </div>
       </div>
 
