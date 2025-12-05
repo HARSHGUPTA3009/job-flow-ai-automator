@@ -1,245 +1,381 @@
 const express = require('express');
-const multer = require('multer');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
-const Profile = require('../models/Profile');
-
-// ===============================
-// FILE STORAGE SETUP
-// ===============================
-
-// Create uploads directory if doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+const Profile = require('../models/Profile'); // Adjust path as needed
+const multer = require('multer');
+const { GridFSBucket } = require('mongodb');
+const mongoose = require('mongoose');
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + '-' + file.originalname);
-  }
-});
-
-const upload = multer({
+const storage = multer.memoryStorage();
+const upload = multer({ 
   storage,
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    const allowed = [
+    const allowedTypes = [
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    allowed.includes(file.mimetype)
-      ? cb(null, true)
-      : cb(new Error('Invalid file type. Only PDF and Word files allowed.'));
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'));
+    }
   }
 });
 
-// ===============================
-// AUTH MIDDLEWARE
-// ===============================
-
-const requireAuth = (req, res, next) => {
-  if (req.isAuthenticated && req.isAuthenticated()) return next();
-  console.log('Auth bypassed (dev mode)');
-  next();
-};
-
-// ===============================
+// ============================================================================
 // PROFILE ROUTES
-// ===============================
+// ============================================================================
 
-// GET PROFILE
-router.get('/profile/:userId', requireAuth, async (req, res) => {
+// GET profile by userId
+router.get('/profile/:userId', async (req, res) => {
   try {
-    const profile = await Profile.findOne({ userId: req.params.userId });
-    res.json(profile || null);
+    const { userId } = req.params;
+    const profile = await Profile.findOne({ userId });
+    
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    
+    res.json(profile);
   } catch (error) {
-    console.error('Profile Fetch Error:', error);
+    console.error('Error fetching profile:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
-// CREATE/UPDATE PROFILE
-router.post('/profile', requireAuth, async (req, res) => {
+// POST/UPDATE profile
+router.post('/profile', async (req, res) => {
   try {
-    const {
-      userId,
-      name,
-      email,
-      phone,
-      college,
-      branch,
-      year,
-    } = req.body;
-
-    // validation
-    if (!userId || !name || !email || !phone || !college || !branch || !year) {
-      return res.status(400).json({ error: "All fields are required" });
+    const { userId, ...profileData } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
-    let profile = await Profile.findOne({ userId });
-
-    if (!profile) {
-      profile = new Profile({
-        userId,
-        name, email, phone,
-        college, branch, year,
-        resumes: []
-      });
-    } else {
-      profile.set({
-        name, email, phone,
-        college, branch, year
-      });
+    // Validate required fields
+    const requiredFields = ['name', 'email', 'phone', 'college', 'branch', 'year', 'cgpa'];
+    for (const field of requiredFields) {
+      if (!profileData[field] && profileData[field] !== 0) {
+        return res.status(400).json({ error: `${field} is required` });
+      }
     }
 
-    await profile.save();
+    // Update or create profile
+    const profile = await Profile.findOneAndUpdate(
+      { userId },
+      { userId, ...profileData },
+      { new: true, upsert: true, runValidators: true }
+    );
 
-    res.json({ success: true, profile });
-
+    res.json(profile);
   } catch (error) {
-    console.error('Profile Save Error:', error);
+    console.error('Error saving profile:', error);
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({ error: messages.join(', ') });
+    }
     res.status(500).json({ error: 'Failed to save profile' });
   }
 });
 
-// ===============================
+// ============================================================================
 // RESUME ROUTES
-// ===============================
+// ============================================================================
 
-// UPLOAD RESUME
-router.post('/resume/upload', requireAuth, upload.single('file'), async (req, res) => {
+// Upload resume
+router.post('/resume/upload', upload.single('file'), async (req, res) => {
   try {
     const { userId } = req.body;
+    const file = req.file;
 
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
-
-    let profile = await Profile.findOne({ userId });
-
-    if (!profile) {
-      profile = new Profile({
-        userId,
-        resumes: []
-      });
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const fileData = {
-      fileId: req.file.filename,
-      name: req.file.originalname,
-      uploadDate: new Date(),
-      isActive: true,
-    };
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
-    profile.resumes.push(fileData);
-    await profile.save();
+    // Initialize GridFS
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
 
-    res.json({
-      success: true,
-      message: 'Resume uploaded successfully',
-      resumes: profile.resumes,
+    // Upload to GridFS
+    const uploadStream = bucket.openUploadStream(file.originalname, {
+      contentType: file.mimetype,
+      metadata: { userId }
+    });
+
+    uploadStream.end(file.buffer);
+
+    uploadStream.on('finish', async () => {
+      try {
+        // Add resume to profile
+        const profile = await Profile.findOneAndUpdate(
+          { userId },
+          {
+            $push: {
+              resumes: {
+                fileId: uploadStream.id.toString(),
+                name: file.originalname,
+                uploadDate: new Date(),
+                isActive: false
+              }
+            }
+          },
+          { new: true, upsert: true }
+        );
+
+        res.json({
+          message: 'Resume uploaded successfully',
+          fileId: uploadStream.id.toString(),
+          resumes: profile.resumes
+        });
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
+      }
+    });
+
+    uploadStream.on('error', (error) => {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Failed to upload file' });
     });
 
   } catch (error) {
-    console.error('Resume Upload Error:', error);
-    res.status(500).json({
-      error: 'Failed to upload resume',
-      details: error.message,
-    });
+    console.error('Error uploading resume:', error);
+    res.status(500).json({ error: 'Failed to upload resume' });
   }
 });
 
-// DELETE RESUME
-router.delete('/resume/:fileId', requireAuth, async (req, res) => {
+// Delete resume
+router.delete('/resume/:fileId', async (req, res) => {
   try {
     const { fileId } = req.params;
     const { userId } = req.body;
 
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
 
-    let profile = await Profile.findOne({ userId });
-    if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    // Delete from GridFS
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
+    
+    await bucket.delete(new mongoose.Types.ObjectId(fileId));
 
-    // remove from DB
-    profile.resumes = profile.resumes.filter(r => r.fileId !== fileId);
-    await profile.save();
-
-    // delete file
-    const filePath = path.join(uploadsDir, fileId);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    // Remove from profile
+    const profile = await Profile.findOneAndUpdate(
+      { userId },
+      { $pull: { resumes: { fileId } } },
+      { new: true }
+    );
 
     res.json({
-      success: true,
       message: 'Resume deleted successfully',
-      resumes: profile.resumes,
+      resumes: profile.resumes
     });
-
   } catch (error) {
-    console.error('Resume Delete Error:', error);
+    console.error('Error deleting resume:', error);
     res.status(500).json({ error: 'Failed to delete resume' });
   }
 });
 
-// DOWNLOAD RESUME
-router.get('/resume/download/:fileId', requireAuth, async (req, res) => {
+// Download resume
+router.get('/resume/download/:fileId', async (req, res) => {
   try {
     const { fileId } = req.params;
-    const filePath = path.join(uploadsDir, fileId);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
-    }
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'resumes' });
 
-    return res.download(filePath);
+    const downloadStream = bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
 
+    downloadStream.on('error', () => {
+      res.status(404).json({ error: 'File not found' });
+    });
+
+    downloadStream.pipe(res);
   } catch (error) {
-    console.error('Resume Download Error:', error);
+    console.error('Error downloading resume:', error);
     res.status(500).json({ error: 'Failed to download resume' });
   }
 });
 
-// ===============================
-// OFF-CAMPUS ROUTES
-// ===============================
+// ============================================================================
+// OFF-CAMPUS APPLICATION ROUTES
+// ============================================================================
 
-router.get('/off-campus/:userId', requireAuth, async (req, res) => {
+// Create models for other collections (add these at the top of the file)
+const OffCampusApplicationSchema = new mongoose.Schema({
+  userId: { type: String, required: true, index: true },
+  company: { type: String, required: true },
+  jobTitle: { type: String, required: true },
+  jobLink: String,
+  salary: Number,
+  currency: { type: String, default: 'INR' },
+  appliedDate: { type: String, required: true },
+  statusUpdatedDate: { type: String, default: () => new Date().toISOString().split('T')[0] },
+  status: { 
+    type: String, 
+    enum: ['applied', 'screening', 'interview', 'offer', 'rejected', 'accepted'],
+    default: 'applied'
+  },
+  notes: String,
+  followUpDates: [String],
+  source: {
+    type: String,
+    enum: ['linkedin', 'indeed', 'naukri', 'direct', 'other'],
+    default: 'linkedin'
+  }
+}, { timestamps: true });
+
+const CompanyDriveSchema = new mongoose.Schema({
+  userId: { type: String, required: true, index: true },
+  companyName: { type: String, required: true },
+  roles: [String],
+  cutoffCGPA: Number,
+  batchDate: String,
+  resultsDate: String,
+  averagePackage: Number,
+  numberOfSelected: Number,
+  totalApplied: Number
+}, { timestamps: true });
+
+const OnCampusApplicationSchema = new mongoose.Schema({
+  userId: { type: String, required: true, index: true },
+  companyName: { type: String, required: true },
+  role: String,
+  appliedDate: String,
+  status: {
+    type: String,
+    enum: ['applied', 'shortlisted', 'interview_1', 'interview_2', 'interview_3', 'rejected', 'offer'],
+    default: 'applied'
+  },
+  interviewRounds: Number,
+  offerPackage: Number,
+  offerLocation: String
+}, { timestamps: true });
+
+const OffCampusApplication = mongoose.model('OffCampusApplication', OffCampusApplicationSchema);
+const CompanyDrive = mongoose.model('CompanyDrive', CompanyDriveSchema);
+const OnCampusApplication = mongoose.model('OnCampusApplication', OnCampusApplicationSchema);
+
+// GET off-campus applications
+router.get('/off-campus/:userId', async (req, res) => {
   try {
-    res.json([]);
+    const { userId } = req.params;
+    const applications = await OffCampusApplication.find({ userId }).sort({ createdAt: -1 });
+    res.json(applications);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching applications:', error);
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
-router.post('/off-campus', requireAuth, async (req, res) => {
+// POST off-campus application
+router.post('/off-campus', async (req, res) => {
   try {
-    console.log('Creating off-campus application:', req.body);
-    res.json({ success: true, message: 'Application added' });
+    const application = new OffCampusApplication(req.body);
+    await application.save();
+    res.json(application);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to add application' });
+    console.error('Error creating application:', error);
+    res.status(500).json({ error: 'Failed to create application' });
   }
 });
 
-// ===============================
-// ON-CAMPUS ROUTES
-// ===============================
-
-router.get('/on-campus/:userId', requireAuth, async (req, res) => {
+// PUT off-campus application
+router.put('/off-campus/:id', async (req, res) => {
   try {
-    res.json([]);
+    const { id } = req.params;
+    const application = await OffCampusApplication.findByIdAndUpdate(
+      id,
+      { ...req.body, statusUpdatedDate: new Date().toISOString().split('T')[0] },
+      { new: true }
+    );
+    res.json(application);
   } catch (error) {
+    console.error('Error updating application:', error);
+    res.status(500).json({ error: 'Failed to update application' });
+  }
+});
+
+// DELETE off-campus application
+router.delete('/off-campus/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await OffCampusApplication.findByIdAndDelete(id);
+    res.json({ message: 'Application deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting application:', error);
+    res.status(500).json({ error: 'Failed to delete application' });
+  }
+});
+
+// ============================================================================
+// COMPANY DRIVE ROUTES
+// ============================================================================
+
+router.get('/company-drives/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const drives = await CompanyDrive.find({ userId }).sort({ createdAt: -1 });
+    res.json(drives);
+  } catch (error) {
+    console.error('Error fetching drives:', error);
+    res.status(500).json({ error: 'Failed to fetch drives' });
+  }
+});
+
+router.post('/company-drives', async (req, res) => {
+  try {
+    const drive = new CompanyDrive(req.body);
+    await drive.save();
+    res.json(drive);
+  } catch (error) {
+    console.error('Error creating drive:', error);
+    res.status(500).json({ error: 'Failed to create drive' });
+  }
+});
+
+router.delete('/company-drives/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await CompanyDrive.findByIdAndDelete(id);
+    res.json({ message: 'Drive deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting drive:', error);
+    res.status(500).json({ error: 'Failed to delete drive' });
+  }
+});
+
+// ============================================================================
+// ON-CAMPUS APPLICATION ROUTES
+// ============================================================================
+
+router.get('/on-campus/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const applications = await OnCampusApplication.find({ userId }).sort({ createdAt: -1 });
+    res.json(applications);
+  } catch (error) {
+    console.error('Error fetching on-campus applications:', error);
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
-// ===============================
-// EXPORT ROUTER
-// ===============================
+router.post('/on-campus', async (req, res) => {
+  try {
+    const application = new OnCampusApplication(req.body);
+    await application.save();
+    res.json(application);
+  } catch (error) {
+    console.error('Error creating on-campus application:', error);
+    res.status(500).json({ error: 'Failed to create application' });
+  }
+});
 
 module.exports = router;
