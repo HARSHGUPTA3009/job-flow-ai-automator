@@ -1,5 +1,5 @@
 // api.js - Frontend API Service for Placement Tracker
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api/placement';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:5001/api/placement';
 
 // Helper function for API calls
 const apiCall = async (endpoint, options = {}) => {
