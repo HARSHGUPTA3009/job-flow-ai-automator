@@ -4,7 +4,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Plus, Edit2, Trash2, TrendingUp, Users, Briefcase, CheckCircle, Loader2, Download, Upload } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
-const API_BASE_URL = import.meta.env.API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 interface User {
   id: string;
