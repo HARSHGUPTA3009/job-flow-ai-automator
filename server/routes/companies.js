@@ -2,7 +2,7 @@
 const express = require('express');
 const router  = express.Router();
 const Company = require('../models/company');
-const User    = require('../models/User');
+const User    = require('../config/User');
 
 // ── Middleware: require authenticated session (Passport) ──────────────────────
 function requireAuth(req, res, next) {
