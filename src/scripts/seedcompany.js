@@ -39,6 +39,47 @@ const SEED_COMPANIES = [
   { name: 'Airtable',     careersUrl: 'https://airtable.com/careers' },
   { name: 'Asana',        careersUrl: 'https://asana.com/jobs' },
   { name: 'Calendly',     careersUrl: 'https://careers.calendly.com' },
+  // Big Tech / FAANG
+{ name: 'Google', careersUrl: 'https://careers.google.com/jobs/results/?q=intern' },
+{ name: 'Microsoft', careersUrl: 'https://jobs.careers.microsoft.com/global/en/search?q=intern' },
+{ name: 'Amazon', careersUrl: 'https://www.amazon.jobs/en/search?base_query=intern' },
+{ name: 'Apple', careersUrl: 'https://jobs.apple.com/en-in/search?search=intern' },
+{ name: 'Meta', careersUrl: 'https://www.metacareers.com/jobs/?q=intern' },
+
+// Unicorns / Product Companies
+{ name: 'Uber', careersUrl: 'https://www.uber.com/global/en/careers/list/?query=intern' },
+{ name: 'Airbnb', careersUrl: 'https://careers.airbnb.com/positions/?search=intern' },
+{ name: 'Netflix', careersUrl: 'https://jobs.netflix.com/search?q=intern' },
+{ name: 'Salesforce', careersUrl: 'https://salesforce.wd1.myworkdayjobs.com/External_Career_Site?locations=All&keyword=intern' },
+{ name: 'Adobe', careersUrl: 'https://careers.adobe.com/us/en/search-results?keywords=intern' },
+{ name: 'Nvidia', careersUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite?q=intern' },
+
+// Trading / Quant
+{ name: 'Jane Street', careersUrl: 'https://www.janestreet.com/join-jane-street/positions/?type=internship' },
+{ name: 'Tower Research', careersUrl: 'https://www.tower-research.com/open-positions/' },
+{ name: 'Optiver', careersUrl: 'https://optiver.com/working-at-optiver/career-opportunities/' },
+
+// Indian Product Companies
+{ name: 'Flipkart', careersUrl: 'https://www.flipkartcareers.com/#!/joblist' },
+{ name: 'Swiggy', careersUrl: 'https://careers.swiggy.com/#/jobs' },
+{ name: 'Zomato', careersUrl: 'https://www.zomato.com/careers' },
+{ name: 'Razorpay', careersUrl: 'https://razorpay.com/jobs/' },
+{ name: 'Meesho', careersUrl: 'https://meesho.io/jobs' },
+{ name: 'PhonePe', careersUrl: 'https://www.phonepe.com/careers/' },
+{ name: 'CRED', careersUrl: 'https://careers.cred.club/' },
+
+// Consulting / Finance
+{ name: 'Goldman Sachs', careersUrl: 'https://www.goldmansachs.com/careers/students/programs/' },
+{ name: 'JPMorgan', careersUrl: 'https://careers.jpmorgan.com/in/en/students/programs' },
+{ name: 'Morgan Stanley', careersUrl: 'https://www.morganstanley.com/careers/students-graduates' },
+{ name: 'EY', careersUrl: 'https://careers.ey.com/ey/search/?search=intern' },
+{ name: 'Deloitte', careersUrl: 'https://apply.deloitte.com/careers/SearchJobs?3_5_3=intern' },
+
+// Semiconductor / Core
+{ name: 'Texas Instruments', careersUrl: 'https://careers.ti.com/search/?q=intern' },
+{ name: 'Qualcomm', careersUrl: 'https://careers.qualcomm.com/careers?query=intern' },
+{ name: 'Broadcom', careersUrl: 'https://jobs.broadcom.com/' }
+
 ];
 
 const DEFAULT_KEYWORDS = ['intern', 'internship', 'software engineer', 'summer', 'backend', 'sde'];
