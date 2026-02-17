@@ -4,7 +4,7 @@
 // SendGrid / Mailgun in production by setting EMAIL_PROVIDER env var.
 
 const nodemailer = require('nodemailer');
-const User = require('../models/User');
+const User = require('../config/User');
 
 // ── Transporter ──────────────────────────────────────────────────────────────
 // Gmail App Password setup:
