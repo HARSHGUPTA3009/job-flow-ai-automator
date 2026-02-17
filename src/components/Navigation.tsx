@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard, Briefcase, Home } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, Briefcase, Home, Bot, Search } from "lucide-react";
 
 interface NavigationProps {
   user: { id: string; email: string; name?: string } | null;
@@ -30,7 +30,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
     <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          
+
           {/* Logo */}
           <Link
             to="/"
@@ -53,16 +53,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
                   </Button>
                 </Link>
 
-                <Link to="/dashboard">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white flex items-center gap-2"
-                  >
-                    <LayoutDashboard size={16} />
-                    Dashboard
-                  </Button>
-                </Link>
-
+                {/* MOVED: Placements before Dashboard */}
                 <Link to="/placements">
                   <Button
                     variant="ghost"
@@ -70,6 +61,28 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
                   >
                     <Briefcase size={16} />
                     Placements
+                  </Button>
+                </Link>
+
+                {/* RENAMED: Dashboard → ATS / Cold Email */}
+                <Link to="/dashboard">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white flex items-center gap-2"
+                  >
+                    <Bot size={16} />
+                    ATS / Cold Email
+                  </Button>
+                </Link>
+
+                {/* NEW: Job Monitor */}
+                <Link to="/jobs">
+                  <Button
+                    variant="ghost"
+                    className="text-gray-300 hover:text-white flex items-center gap-2"
+                  >
+                    <Search size={16} />
+                    Job Monitor
                   </Button>
                 </Link>
 
@@ -90,10 +103,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
             ) : (
               <>
                 <Link to="/signin">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white"
-                  >
+                  <Button variant="ghost" className="text-gray-300 hover:text-white">
                     Sign In
                   </Button>
                 </Link>
@@ -113,11 +123,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
               onClick={() => setIsOpen(!isOpen)}
               className="text-gray-300 hover:text-white"
             >
-              {isOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
@@ -140,17 +146,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
                   </Button>
                 </Link>
 
-                <Link to="/dashboard">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <LayoutDashboard size={16} className="mr-2" />
-                    Dashboard
-                  </Button>
-                </Link>
-
+                {/* MOVED: Placements before ATS */}
                 <Link to="/placements">
                   <Button
                     variant="ghost"
@@ -159,6 +155,30 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
                   >
                     <Briefcase size={16} className="mr-2" />
                     Placements
+                  </Button>
+                </Link>
+
+                {/* RENAMED: Dashboard → ATS / Cold Email */}
+                <Link to="/dashboard">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Bot size={16} className="mr-2" />
+                    ATS / Cold Email
+                  </Button>
+                </Link>
+
+                {/* NEW: Job Monitor */}
+                <Link to="/jobs">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-gray-300 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Search size={16} className="mr-2" />
+                    Job Monitor
                   </Button>
                 </Link>
 

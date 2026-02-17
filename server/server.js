@@ -364,7 +364,11 @@ app.use('/api', require("./routes/api"));
 
 // Chatbot Routes
 app.use('/api/chatbot', chatbotRoutes);
-
+const jobRoutes     = require('./routes/jobs');
+const companyRoutes = require('./routes/companies');
+const { initCron }  = require('./cron/jobScraper.cron');
+app.use('/api/jobs',      jobRoutes);
+app.use('/api/companies', companyRoutes);
 // ============================================================================
 // PLACEMENT TRACKER API ROUTES
 // ============================================================================
