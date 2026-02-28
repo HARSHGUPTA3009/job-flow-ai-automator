@@ -9,10 +9,9 @@ import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Placements from "./pages/Placements";
-import Jobs from "./pages/Jobs";                    // ← NEW
+import Jobs from "./pages/Jobs";
+import Coding from "./pages/coding";          // ← fixed casing
 import { Navigation } from "./components/Navigation";
-import Coding from "./pages/coding";     
-
 
 const queryClient = new QueryClient();
 
@@ -29,7 +28,6 @@ function LoadingScreen() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
-
       <div className="relative z-10 flex flex-col items-center gap-8">
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 rounded-full border-4 border-gray-700"></div>
@@ -38,12 +36,10 @@ function LoadingScreen() {
             <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse"></div>
           </div>
         </div>
-
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-semibold text-white">Loading Service</h2>
           <p className="text-gray-400 animate-pulse">Please wait a moment...</p>
         </div>
-
         <div className="flex gap-2">
           <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
           <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
@@ -69,7 +65,6 @@ const App = () => {
         { credentials: "include" }
       );
       const data = await res.json();
-
       if (data.authenticated && data.user) {
         setUser({
           id: data.user.id || data.user.email,
@@ -84,13 +79,9 @@ const App = () => {
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-  };
+  const handleLogout = () => setUser(null);
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -114,13 +105,13 @@ const App = () => {
               element={user ? <Placements user={user} /> : <Navigate to="/signin" replace />}
             />
             <Route
-              path="/coding"
-              element={user ? <Jobs user={user} /> : <Navigate to="/signin" replace />}
-            />
-            {/* ── NEW ── */}
-            <Route
               path="/jobs"
               element={user ? <Jobs user={user} /> : <Navigate to="/signin" replace />}
+            />
+            {/* ✅ FIXED: was pointing to Jobs, now points to Coding */}
+            <Route
+              path="/coding"
+              element={user ? <Coding user={user} /> : <Navigate to="/signin" replace />}
             />
             <Route path="*" element={<NotFound />} />
           </Routes>

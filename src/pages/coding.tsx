@@ -558,8 +558,6 @@ function Coding({ user }: { user: User }) {
   const [profiles, setProfiles] = useState<PlatformProfile[]>([]);
   const [streak, setStreak] = useState(0);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
-
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -583,6 +581,8 @@ function Coding({ user }: { user: User }) {
       if (pRes.ok) setProfiles(await pRes.json());
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [user.id]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const totalSolved = entries.length;
   const starredCount = entries.filter(e => e.isStarred).length;

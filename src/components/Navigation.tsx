@@ -1,16 +1,28 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard, Briefcase, Home, Bot, Search } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import {
+  Menu, X, LogOut, Briefcase, Home,
+  Bot, Search, Code2, ChevronDown
+} from "lucide-react";
 
 interface NavigationProps {
   user: { id: string; email: string; name?: string } | null;
   onLogout: () => void;
 }
 
+const NAV_LINKS = [
+  { to: "/",           label: "Home",          icon: Home     },
+  { to: "/placements", label: "Placements",    icon: Briefcase },
+  { to: "/dashboard",  label: "ATS / Cold Email", icon: Bot   },
+  { to: "/jobs",       label: "Job Monitor",   icon: Search   },
+  { to: "/coding",     label: "Coding",        icon: Code2    },
+];
+
 export const Navigation = ({ user, onLogout }: NavigationProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     try {
@@ -26,197 +38,137 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
     }
   };
 
+  const isActive = (path: string) =>
+    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
 
           {/* Logo */}
-          <Link
-            to="/"
-            className="text-2xl font-bold text-gray-200 hover:text-white transition"
-          >
+          <Link to="/" className="text-xl font-bold text-gray-200 hover:text-white transition flex items-center gap-2">
             AutoJob Flow
           </Link>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center gap-1">
             {user ? (
               <>
-                <Link to="/">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white flex items-center gap-2"
-                  >
-                    <Home size={16} />
-                    Home
-                  </Button>
-                </Link>
+                {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                  <Link key={to} to={to}>
+                    <button
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isActive(to)
+                          ? "bg-white/10 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  </Link>
+                ))}
 
-                {/* MOVED: Placements before Dashboard */}
-                <Link to="/placements">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white flex items-center gap-2"
-                  >
-                    <Briefcase size={16} />
-                    Placements
-                  </Button>
-                </Link>
-
-                {/* RENAMED: Dashboard → ATS / Cold Email */}
-                <Link to="/dashboard">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white flex items-center gap-2"
-                  >
-                    <Bot size={16} />
-                    ATS / Cold Email
-                  </Button>
-                </Link>
-
-                {/* NEW: Job Monitor */}
-                <Link to="/jobs">
-                  <Button
-                    variant="ghost"
-                    className="text-gray-300 hover:text-white flex items-center gap-2"
-                  >
-                    <Search size={16} />
-                    Job Monitor
-                  </Button>
-                </Link>
-
-                <div className="flex items-center space-x-4 pl-4 border-l border-gray-700">
-                  <span className="text-gray-400 text-sm">
-                    {user.name || user.email}
-                  </span>
-
-                  <Button
+                <div className="flex items-center gap-3 ml-3 pl-3 border-l border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {(user.name || user.email)?.[0]?.toUpperCase()}
+                    </div>
+                    <span className="text-gray-400 text-sm max-w-[120px] truncate">
+                      {user.name || user.email}
+                    </span>
+                  </div>
+                  <button
                     onClick={handleSignOut}
-                    className="bg-gray-200 text-black hover:bg-white flex items-center gap-2"
+                    className="flex items-center gap-1.5 bg-gray-200 hover:bg-white text-black text-sm font-semibold px-3 py-1.5 rounded-lg transition"
                   >
-                    <LogOut size={16} />
+                    <LogOut size={13} />
                     Sign Out
-                  </Button>
+                  </button>
                 </div>
               </>
             ) : (
-              <>
+              <div className="flex items-center gap-2">
                 <Link to="/signin">
-                  <Button variant="ghost" className="text-gray-300 hover:text-white">
+                  <button className="text-gray-300 hover:text-white text-sm px-3 py-2 rounded-lg hover:bg-white/5 transition">
                     Sign In
-                  </Button>
+                  </button>
                 </Link>
-
                 <Link to="/signin">
-                  <Button className="bg-gray-200 text-black hover:bg-white font-semibold">
+                  <button className="bg-gray-200 hover:bg-white text-black text-sm font-semibold px-4 py-2 rounded-lg transition">
                     Get Started
-                  </Button>
+                  </button>
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-300 hover:text-white"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="md:hidden text-gray-300 hover:text-white p-1 rounded-lg hover:bg-white/5 transition"
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-black/95 backdrop-blur-xl border-b border-gray-800">
-          <div className="px-2 pt-2 pb-3 space-y-1">
+        <div className="md:hidden bg-black/98 backdrop-blur-xl border-b border-gray-800">
+          <div className="px-4 pt-3 pb-5 space-y-1">
             {user ? (
               <>
-                <Link to="/">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Home size={16} className="mr-2" />
-                    Home
-                  </Button>
-                </Link>
+                {/* User info */}
+                <div className="flex items-center gap-3 px-3 py-3 mb-2 bg-gray-900/50 rounded-xl border border-gray-800">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {(user.name || user.email)?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{user.name || user.email}</p>
+                    {user.name && <p className="text-gray-500 text-xs truncate">{user.email}</p>}
+                  </div>
+                </div>
 
-                {/* MOVED: Placements before ATS */}
-                <Link to="/placements">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Briefcase size={16} className="mr-2" />
-                    Placements
-                  </Button>
-                </Link>
+                {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                  <Link key={to} to={to} onClick={() => setIsOpen(false)}>
+                    <button
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+                        isActive(to)
+                          ? "bg-blue-600/20 text-blue-400 border border-blue-500/20"
+                          : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <Icon size={15} />
+                      {label}
+                    </button>
+                  </Link>
+                ))}
 
-                {/* RENAMED: Dashboard → ATS / Cold Email */}
-                <Link to="/dashboard">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
+                <div className="pt-3 mt-3 border-t border-gray-800">
+                  <button
+                    onClick={() => { handleSignOut(); setIsOpen(false); }}
+                    className="w-full flex items-center justify-center gap-2 bg-gray-200 hover:bg-white text-black text-sm font-semibold px-4 py-2.5 rounded-xl transition"
                   >
-                    <Bot size={16} className="mr-2" />
-                    ATS / Cold Email
-                  </Button>
-                </Link>
-
-                {/* NEW: Job Monitor */}
-                <Link to="/jobs">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Search size={16} className="mr-2" />
-                    Job Monitor
-                  </Button>
-                </Link>
-
-                <div className="pt-4 pb-2 space-y-2 border-t border-gray-700">
-                  <p className="text-gray-400 text-sm px-3 py-2">
-                    {user.name || user.email}
-                  </p>
-
-                  <Button
-                    onClick={() => {
-                      handleSignOut();
-                      setIsOpen(false);
-                    }}
-                    className="w-full bg-gray-200 text-black hover:bg-white"
-                  >
-                    <LogOut size={16} className="mr-2" />
+                    <LogOut size={14} />
                     Sign Out
-                  </Button>
+                  </button>
                 </div>
               </>
             ) : (
-              <>
-                <Link to="/signin">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-300 hover:text-white"
-                    onClick={() => setIsOpen(false)}
-                  >
+              <div className="space-y-2 pt-2">
+                <Link to="/signin" onClick={() => setIsOpen(false)}>
+                  <button className="w-full text-gray-300 hover:text-white text-sm py-2.5 px-3 rounded-xl hover:bg-white/5 transition text-left">
                     Sign In
-                  </Button>
+                  </button>
                 </Link>
-
-                <Link to="/signin">
-                  <Button className="w-full bg-gray-200 text-black hover:bg-white font-semibold">
+                <Link to="/signin" onClick={() => setIsOpen(false)}>
+                  <button className="w-full bg-gray-200 hover:bg-white text-black text-sm font-semibold py-2.5 px-3 rounded-xl transition">
                     Get Started
-                  </Button>
+                  </button>
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
