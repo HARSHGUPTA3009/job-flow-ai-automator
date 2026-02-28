@@ -11,6 +11,8 @@ import NotFound from "./pages/NotFound";
 import Placements from "./pages/Placements";
 import Jobs from "./pages/Jobs";                    // ← NEW
 import { Navigation } from "./components/Navigation";
+import Coding from "./pages/coding";     
+
 
 const queryClient = new QueryClient();
 
@@ -110,6 +112,10 @@ const App = () => {
             <Route
               path="/placements"
               element={user ? <Placements user={user} /> : <Navigate to="/signin" replace />}
+            />
+            <Route
+              path="/coding"
+              element={user ? <Jobs user={user} /> : <Navigate to="/signin" replace />}
             />
             {/* ── NEW ── */}
             <Route
