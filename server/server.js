@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3001;
 
 
 app.use(cors({
-  origin: true,
+  origin: ['https://autojobflow.vercel.app/', 'http://localhost:8080'],
   credentials: true
 }));
 // ============================
@@ -45,12 +45,12 @@ const upload = multer({
   }
 });
 
-app.use('/api/coding', require('./routes/coding'));
-app.use('/api/leaderboard', require('./routes/leaderboard'));
+
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
+app.use('/api/coding', require('./routes/coding'));
+app.use('/api/leaderboard', require('./routes/leaderboard'));
 const axios = require("axios");
 
 const pdf = require("pdf-parse");
