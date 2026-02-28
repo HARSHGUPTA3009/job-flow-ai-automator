@@ -46,7 +46,7 @@ const upload = multer({
 });
 const codingRoutes = require('./routes/coding');
 app.use('/api/coding', codingRoutes);
-const LeaderRoutes = require('./routes/coding');
+const LeaderRoutes = require('./routes/leaderbaord');
 app.use('/api/leaderboard', require('api/leaderboard',LeaderRoutes));
 
 app.use(express.json({ limit: '50mb' }));
@@ -892,6 +892,9 @@ app.get('/api/health', (req, res) => {
 // ============================================================================
 // ERROR HANDLING
 // ============================================================================
+const { initKeepalive } = require('./cron/keepalive');
+initKeepalive();
+
 
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err);

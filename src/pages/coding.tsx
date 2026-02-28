@@ -71,10 +71,10 @@ const ccStyles = `
     min-height: 100vh;
     background: #080b12;
     color: white;
-    padding: 24px 16px 80px;
+    padding: 88px 16px 80px;
     font-family: inherit;
   }
-  @media (min-width: 640px) { .cc-page-root { padding: 32px 32px 80px; } }
+  @media (min-width: 640px) { .cc-page-root { padding: 88px 32px 80px; } }
   .cc-card { background: #12151f; border: 1px solid #1a1f2e; border-radius: 16px; padding: 20px; }
   .cc-stat-card { background: #12151f; border: 1px solid #1a1f2e; border-radius: 12px; padding: 16px; }
   .cc-input {
@@ -558,6 +558,8 @@ function Coding({ user }: { user: User }) {
   const [profiles, setProfiles] = useState<PlatformProfile[]>([]);
   const [streak, setStreak] = useState(0);
 
+  useEffect(() => { loadAll(); }, [loadAll]);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -581,8 +583,6 @@ function Coding({ user }: { user: User }) {
       if (pRes.ok) setProfiles(await pRes.json());
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [user.id]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
 
   const totalSolved = entries.length;
   const starredCount = entries.filter(e => e.isStarred).length;

@@ -57,8 +57,8 @@ const styles = `
   @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
   @keyframes live-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
 
-  .lb-root { min-height: 100vh; background: #080b12; color: white; padding: 24px 16px 80px; font-family: inherit; }
-  @media(min-width:640px) { .lb-root { padding: 32px 32px 80px; } }
+  .lb-root { min-height: 100vh; background: #080b12; color: white; padding: 88px 16px 80px; font-family: inherit; }
+  @media(min-width:640px) { .lb-root { padding: 88px 32px 80px; } }
 
   .lb-card { background: #12151f; border: 1px solid #1a1f2e; border-radius: 16px; padding: 20px; }
 
