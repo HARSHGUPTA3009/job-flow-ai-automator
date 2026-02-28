@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -8,10 +7,25 @@ import {
   Plus, Edit2, Trash2, TrendingUp, Users, Briefcase,
   CheckCircle, Loader2, Download, Upload, Save, X,
   FileText, ExternalLink, Github, Linkedin, ChevronRight,
-  BarChart2, Target, Award, BookOpen
+  BarChart2, Award, BookOpen
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+// ─── Styles — defined FIRST so components below can reference ccStyles ────────
+
+const ccStyles = `
+  .cc-page-root {
+    min-height: 100vh;
+    background: #080b12;
+    color: white;
+    padding: 88px 16px 80px;
+    font-family: inherit;
+  }
+  @media (min-width: 640px) { .cc-page-root { padding: 88px 32px 80px; } }
+  .cc-card { background: #12151f; border: 1px solid #1a1f2e; border-radius: 16px; padding: 20px; }
+  .cc-stat-card { background: #12151f; border: 1px solid #1a1f2e; border-radius: 12px; padding: 16px; }
+`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,16 +34,15 @@ interface User { id: string; email: string; name?: string; }
 interface UserProfile {
   userId: string; name: string; email: string; phone: string;
   college: string; branch: string; year: number; cgpa: number;
-  skills: string[]; resumes: Resume[]; linkedIn: string;
-  github: string; preferredRoles: string[]; preferredLocations: string[];
+  skills: string[]; resumes: Resume[]; linkedIn: string; github: string;
+  preferredRoles: string[]; preferredLocations: string[];
 }
 
 interface Resume { name: string; fileId: string; uploadDate: string; isActive: boolean; }
 
 interface OffCampusApplication {
   _id?: string; company: string; jobTitle: string; jobLink: string;
-  salary?: number; currency: string; appliedDate: string;
-  statusUpdatedDate: string;
+  salary?: number; currency: string; appliedDate: string; statusUpdatedDate: string;
   status: 'applied' | 'screening' | 'interview' | 'offer' | 'rejected' | 'accepted';
   notes: string; followUpDates: string[];
   source: 'linkedin' | 'indeed' | 'naukri' | 'direct' | 'other';
@@ -47,7 +60,7 @@ interface CompanyDrive {
   numberOfSelected: number; totalApplied: number;
 }
 
-// ─── Status badge helper ──────────────────────────────────────────────────────
+// ─── Shared UI helpers ────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
   applied:     'bg-blue-500/15 text-blue-400 border-blue-500/30',
@@ -65,11 +78,7 @@ const StatusBadge = ({ status }: { status: string }) => (
   </span>
 );
 
-// ─── Section header ───────────────────────────────────────────────────────────
-
-const SectionHeader = ({
-  icon: Icon, title, subtitle, action
-}: { icon: React.ElementType; title: string; subtitle?: string; action?: React.ReactNode }) => (
+const SectionHeader = ({ icon: Icon, title, subtitle, action }: { icon: React.ElementType; title: string; subtitle?: string; action?: React.ReactNode }) => (
   <div className="flex items-start justify-between mb-6">
     <div className="flex items-center gap-3">
       <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -84,16 +93,11 @@ const SectionHeader = ({
   </div>
 );
 
-// ─── Input / Select helpers ───────────────────────────────────────────────────
-
-const inputCls = "w-full bg-[#0f1117] text-white text-sm p-2.5 rounded-lg border border-gray-800 focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20 outline-none transition placeholder-gray-600";
+const inputCls = "w-full bg-[#0f1117] text-white text-sm p-2.5 rounded-lg border border-gray-800 focus:border-blue-500/60 outline-none transition placeholder-gray-600";
 const selectCls = `${inputCls} cursor-pointer`;
 
 const AddBtn = ({ onClick, label }: { onClick: () => void; label: string }) => (
-  <button
-    onClick={onClick}
-    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
-  >
+  <button onClick={onClick} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
     <Plus size={13} /> {label}
   </button>
 );
@@ -113,17 +117,16 @@ const ResumeManager: React.FC<{ userId: string; resumes: Resume[]; onUpdate: () 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowed.includes(file.type)) { alert('Upload only PDF or Word document.'); e.target.value = ''; return; }
-    if (file.size > 5 * 1024 * 1024) { alert('File size must be less than 5MB.'); e.target.value = ''; return; }
+    const allowed = ['application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowed.includes(file.type)) { alert('PDF or Word only.'); e.target.value = ''; return; }
+    if (file.size > 5 * 1024 * 1024) { alert('Max 5MB.'); e.target.value = ''; return; }
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file); fd.append('userId', userId);
+      const fd = new FormData(); fd.append('file', file); fd.append('userId', userId);
       const res = await fetch(`${API_BASE_URL}/api/placement/resume/upload`, { method: 'POST', credentials: 'include', body: fd });
       const data = await res.json();
       if (!res.ok) { alert(data.error || 'Upload failed.'); return; }
-      alert('Resume uploaded!'); onUpdate();
+      onUpdate();
     } catch { alert('Network error.'); } finally { setUploading(false); e.target.value = ''; }
   };
 
@@ -132,7 +135,7 @@ const ResumeManager: React.FC<{ userId: string; resumes: Resume[]; onUpdate: () 
     setDeleting(fileId);
     try {
       const res = await fetch(`${API_BASE_URL}/api/placement/resume/${fileId}`, { method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) });
-      if (res.ok) { alert('Deleted.'); onUpdate(); } else { const d = await res.json(); alert(d.error || 'Delete failed'); }
+      if (res.ok) onUpdate(); else { const d = await res.json(); alert(d.error || 'Delete failed'); }
     } catch { alert('Error deleting.'); } finally { setDeleting(null); }
   };
 
@@ -150,8 +153,6 @@ const ResumeManager: React.FC<{ userId: string; resumes: Resume[]; onUpdate: () 
   return (
     <div className="cc-card mb-5">
       <SectionHeader icon={FileText} title="Resume Management" subtitle="Upload and manage your resumes" />
-
-      {/* Upload zone */}
       <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl transition cursor-pointer mb-5 ${uploading ? 'border-blue-500/50 bg-blue-500/5' : 'border-gray-800 hover:border-gray-600 bg-[#0f1117]/60'}`}>
         <div className="flex flex-col items-center gap-1.5">
           {uploading
@@ -161,9 +162,7 @@ const ResumeManager: React.FC<{ userId: string; resumes: Resume[]; onUpdate: () 
         </div>
         <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleUpload} disabled={uploading} />
       </label>
-
-      {/* List */}
-      {resumes && resumes.length > 0 ? (
+      {resumes?.length > 0 ? (
         <div className="space-y-2">
           {resumes.map((r, i) => (
             <div key={i} className="flex items-center gap-3 bg-[#0f1117] border border-gray-800 rounded-xl px-4 py-3">
@@ -179,8 +178,7 @@ const ResumeManager: React.FC<{ userId: string; resumes: Resume[]; onUpdate: () 
                   <Download size={12} /> Download
                 </button>
                 <button onClick={() => handleDelete(r.fileId)} disabled={deleting === r.fileId} className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition">
-                  {deleting === r.fileId ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  Delete
+                  {deleting === r.fileId ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Delete
                 </button>
               </div>
             </div>
@@ -207,9 +205,16 @@ const ProfileManager: React.FC<{ userId: string; profile: UserProfile | null; on
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/placement/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId, ...formData }) });
-      if (res.ok) { alert('Saved!'); setIsEditing(false); onProfileUpdate(); }
+      if (res.ok) { setIsEditing(false); onProfileUpdate(); }
       else { const d = await res.json(); alert(d.error || 'Save failed'); }
     } catch { alert('Error'); } finally { setLoading(false); }
+  };
+
+  const addSkill = () => {
+    if (skillInput.trim()) {
+      setFormData(f => ({ ...f, skills: [...(f.skills || []), skillInput.trim()] }));
+      setSkillInput('');
+    }
   };
 
   if (!profile && !isEditing) return (
@@ -227,31 +232,34 @@ const ProfileManager: React.FC<{ userId: string; profile: UserProfile | null; on
     <div className="cc-card mb-5">
       <SectionHeader icon={BookOpen} title={profile ? 'Edit Profile' : 'Create Profile'} subtitle="Academic and personal information" />
       <div className="grid sm:grid-cols-2 gap-3 mb-4">
-        {[
-          { ph: 'Full Name', key: 'name', type: 'text' },
-          { ph: 'Email', key: 'email', type: 'email' },
-          { ph: 'Phone', key: 'phone', type: 'tel' },
-          { ph: 'College', key: 'college', type: 'text' },
-          { ph: 'Branch', key: 'branch', type: 'text' },
-          { ph: 'Year', key: 'year', type: 'number' },
-          { ph: 'CGPA', key: 'cgpa', type: 'number' },
-          { ph: 'LinkedIn URL', key: 'linkedIn', type: 'text' },
-          { ph: 'GitHub URL', key: 'github', type: 'text' },
-        ].map(({ ph, key, type }) => (
-          <input key={key} type={type} placeholder={ph} value={(formData as any)[key] ?? ''} onChange={e => setFormData({ ...formData, [key]: type === 'number' ? (e.target.value === '' ? null : parseFloat(e.target.value)) : e.target.value })} className={inputCls} />
+        {([
+          { ph: 'Full Name',    key: 'name',    type: 'text'   },
+          { ph: 'Email',        key: 'email',   type: 'email'  },
+          { ph: 'Phone',        key: 'phone',   type: 'tel'    },
+          { ph: 'College',      key: 'college', type: 'text'   },
+          { ph: 'Branch',       key: 'branch',  type: 'text'   },
+          { ph: 'Year',         key: 'year',    type: 'number' },
+          { ph: 'CGPA',         key: 'cgpa',    type: 'number' },
+          { ph: 'LinkedIn URL', key: 'linkedIn',type: 'text'   },
+          { ph: 'GitHub URL',   key: 'github',  type: 'text'   },
+        ] as { ph: string; key: keyof UserProfile; type: string }[]).map(({ ph, key, type }) => (
+          <input key={key} type={type} placeholder={ph}
+            value={String((formData[key] as string | number) ?? '')}
+            onChange={e => setFormData(f => ({ ...f, [key]: type === 'number' ? (e.target.value === '' ? undefined : parseFloat(e.target.value)) : e.target.value }))}
+            className={inputCls} />
         ))}
       </div>
-      {/* Skills */}
       <div className="mb-4">
         <p className="text-gray-400 text-xs font-medium mb-2">Skills</p>
         <div className="flex gap-2 mb-2">
-          <input type="text" placeholder="Add skill…" value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (skillInput.trim()) { setFormData({ ...formData, skills: [...(formData.skills || []), skillInput.trim()] }); setSkillInput(''); } } }} className={inputCls} />
-          <button onClick={() => { if (skillInput.trim()) { setFormData({ ...formData, skills: [...(formData.skills || []), skillInput.trim()] }); setSkillInput(''); } }} className="bg-blue-600 hover:bg-blue-500 text-white px-3 rounded-lg text-xs font-semibold transition flex-shrink-0">Add</button>
+          <input type="text" placeholder="Add skill…" value={skillInput} onChange={e => setSkillInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} className={inputCls} />
+          <button onClick={addSkill} className="bg-blue-600 hover:bg-blue-500 text-white px-3 rounded-lg text-xs font-semibold transition flex-shrink-0">Add</button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {formData.skills?.map((s, i) => (
             <span key={i} className="bg-blue-500/10 border border-blue-500/25 text-blue-400 text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5">
-              {s}<button onClick={() => setFormData({ ...formData, skills: formData.skills!.filter((_, j) => j !== i) })} className="hover:text-white">×</button>
+              {s}<button onClick={() => setFormData(f => ({ ...f, skills: f.skills!.filter((_, j) => j !== i) }))}>×</button>
             </span>
           ))}
         </div>
@@ -281,43 +289,30 @@ const ProfileManager: React.FC<{ userId: string; profile: UserProfile | null; on
           <Edit2 size={12} /> Edit
         </button>
       </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        {[
+        {([
           { label: 'College', value: profile?.college },
-          { label: 'Branch', value: profile?.branch },
-          { label: 'CGPA', value: profile?.cgpa != null ? profile.cgpa.toFixed(2) : 'N/A' },
-          { label: 'Year', value: profile?.year ? `${profile.year} Year` : 'N/A' },
-        ].map(({ label, value }) => (
+          { label: 'Branch',  value: profile?.branch  },
+          { label: 'CGPA',    value: profile?.cgpa != null ? profile.cgpa.toFixed(2) : 'N/A' },
+          { label: 'Year',    value: profile?.year ? `${profile.year} Year` : 'N/A' },
+        ]).map(({ label, value }) => (
           <div key={label} className="bg-[#0f1117] border border-gray-800 rounded-xl p-3">
             <p className="text-gray-500 text-[10px] mb-0.5">{label}</p>
             <p className="text-white text-sm font-semibold truncate">{value ?? '—'}</p>
           </div>
         ))}
       </div>
-
       {(profile?.linkedIn || profile?.github) && (
         <div className="flex gap-2 mb-5">
-          {profile.linkedIn && (
-            <a href={profile.linkedIn} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition">
-              <Linkedin size={12} /> LinkedIn
-            </a>
-          )}
-          {profile.github && (
-            <a href={profile.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-700 transition">
-              <Github size={12} /> GitHub
-            </a>
-          )}
+          {profile.linkedIn && <a href={profile.linkedIn} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition"><Linkedin size={12} /> LinkedIn</a>}
+          {profile.github  && <a href={profile.github}   target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-700 transition"><Github size={12} /> GitHub</a>}
         </div>
       )}
-
       {profile?.skills && profile.skills.length > 0 && (
         <div>
           <p className="text-gray-500 text-[10px] font-medium mb-2 uppercase tracking-wider">Skills</p>
           <div className="flex flex-wrap gap-1.5">
-            {profile.skills.map((s, i) => (
-              <span key={i} className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] px-2.5 py-1 rounded-full">{s}</span>
-            ))}
+            {profile.skills.map((s, i) => <span key={i} className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[11px] px-2.5 py-1 rounded-full">{s}</span>)}
           </div>
         </div>
       )}
@@ -357,30 +352,24 @@ const OffCampusTracker: React.FC<{ userId: string; applications: OffCampusApplic
     } catch { alert('Error'); }
   };
 
-  const stages = ['applied', 'screening', 'interview', 'offer', 'rejected', 'accepted'] as const;
+  const stages = ['applied','screening','interview','offer','rejected','accepted'] as const;
 
   return (
     <div className="cc-card mb-5">
-      <SectionHeader
-        icon={Briefcase}
-        title="Off-Campus Applications"
-        subtitle={`${applications.length} applications tracked`}
-        action={<AddBtn onClick={() => setShowForm(v => !v)} label="Add Application" />}
-      />
-
+      <SectionHeader icon={Briefcase} title="Off-Campus Applications" subtitle={`${applications.length} applications tracked`} action={<AddBtn onClick={() => setShowForm(v => !v)} label="Add Application" />} />
       {showForm && (
         <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-4 mb-5">
           <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <input type="text" placeholder="Company Name *" value={fd.company || ''} onChange={e => setFd({ ...fd, company: e.target.value })} className={inputCls} />
-            <input type="text" placeholder="Job Title *" value={fd.jobTitle || ''} onChange={e => setFd({ ...fd, jobTitle: e.target.value })} className={inputCls} />
-            <input type="url" placeholder="Job Link" value={fd.jobLink || ''} onChange={e => setFd({ ...fd, jobLink: e.target.value })} className={inputCls} />
-            <input type="number" placeholder="Salary (optional)" value={fd.salary || ''} onChange={e => setFd({ ...fd, salary: parseFloat(e.target.value) })} className={inputCls} />
-            <input type="date" value={fd.appliedDate || new Date().toISOString().split('T')[0]} onChange={e => setFd({ ...fd, appliedDate: e.target.value })} className={inputCls} />
-            <select value={fd.source || 'linkedin'} onChange={e => setFd({ ...fd, source: e.target.value as any })} className={selectCls}>
-              {['linkedin','indeed','naukri','direct','other'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            <input type="text"   placeholder="Company Name *"   value={fd.company   || ''} onChange={e => setFd(f => ({ ...f, company:   e.target.value }))} className={inputCls} />
+            <input type="text"   placeholder="Job Title *"      value={fd.jobTitle  || ''} onChange={e => setFd(f => ({ ...f, jobTitle:  e.target.value }))} className={inputCls} />
+            <input type="url"    placeholder="Job Link"         value={fd.jobLink   || ''} onChange={e => setFd(f => ({ ...f, jobLink:   e.target.value }))} className={inputCls} />
+            <input type="number" placeholder="Salary (optional)"value={fd.salary    ?? ''} onChange={e => setFd(f => ({ ...f, salary:    parseFloat(e.target.value) }))} className={inputCls} />
+            <input type="date"   value={fd.appliedDate || new Date().toISOString().split('T')[0]} onChange={e => setFd(f => ({ ...f, appliedDate: e.target.value }))} className={inputCls} />
+            <select value={fd.source || 'linkedin'} onChange={e => setFd(f => ({ ...f, source: e.target.value as OffCampusApplication['source'] }))} className={selectCls}>
+              {(['linkedin','indeed','naukri','direct','other'] as const).map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
             </select>
           </div>
-          <textarea placeholder="Notes…" value={fd.notes || ''} onChange={e => setFd({ ...fd, notes: e.target.value })} className={`${inputCls} h-20 resize-none mb-3`} />
+          <textarea placeholder="Notes…" value={fd.notes || ''} onChange={e => setFd(f => ({ ...f, notes: e.target.value }))} className={`${inputCls} h-20 resize-none mb-3`} />
           <div className="flex gap-2">
             <button onClick={handleAdd} disabled={loading} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50">
               {loading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add
@@ -389,8 +378,6 @@ const OffCampusTracker: React.FC<{ userId: string; applications: OffCampusApplic
           </div>
         </div>
       )}
-
-      {/* Kanban */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {stages.map(stage => (
           <div key={stage} className="bg-[#0f1117] border border-gray-800 rounded-xl p-3">
@@ -406,17 +393,11 @@ const OffCampusTracker: React.FC<{ userId: string; applications: OffCampusApplic
                       <p className="text-white text-[11px] font-semibold truncate">{app.company}</p>
                       <p className="text-gray-500 text-[10px] truncate">{app.jobTitle}</p>
                     </div>
-                    <button onClick={() => handleDelete(app._id!)} className="text-gray-700 hover:text-red-400 flex-shrink-0">
-                      <Trash2 size={11} />
-                    </button>
+                    <button onClick={() => handleDelete(app._id!)} className="text-gray-700 hover:text-red-400"><Trash2 size={11} /></button>
                   </div>
                   {app.salary && <p className="text-blue-400 text-[10px] mb-1.5">₹{app.salary.toLocaleString()}</p>}
-                  {app.jobLink && (
-                    <a href={app.jobLink} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-400 flex items-center gap-0.5 text-[10px] mb-1.5">
-                      <ExternalLink size={9} /> View
-                    </a>
-                  )}
-                  <select value={app.status} onChange={e => handleStatus(app._id!, e.target.value as any)} className="w-full bg-[#0f1117] text-gray-400 text-[10px] py-1 px-1.5 rounded border border-gray-800 outline-none">
+                  {app.jobLink && <a href={app.jobLink} target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-400 flex items-center gap-0.5 text-[10px] mb-1.5"><ExternalLink size={9} /> View</a>}
+                  <select value={app.status} onChange={e => handleStatus(app._id!, e.target.value as OffCampusApplication['status'])} className="w-full bg-[#0f1117] text-gray-400 text-[10px] py-1 px-1.5 rounded border border-gray-800 outline-none">
                     {stages.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -456,22 +437,16 @@ const OnCampusTracker: React.FC<{ userId: string; applications: OnCampusApplicat
 
   return (
     <div className="cc-card mb-5">
-      <SectionHeader
-        icon={Award}
-        title="On-Campus Placements"
-        subtitle={`${companyDrives.length} company drives`}
-        action={<AddBtn onClick={() => setShowForm(v => !v)} label="Add Drive" />}
-      />
-
+      <SectionHeader icon={Award} title="On-Campus Placements" subtitle={`${companyDrives.length} company drives`} action={<AddBtn onClick={() => setShowForm(v => !v)} label="Add Drive" />} />
       {showForm && (
         <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-4 mb-5">
           <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <input type="text" placeholder="Company Name *" value={fd.companyName || ''} onChange={e => setFd({ ...fd, companyName: e.target.value })} className={inputCls} />
-            <input type="number" placeholder="Cutoff CGPA" value={fd.cutoffCGPA || ''} onChange={e => setFd({ ...fd, cutoffCGPA: parseFloat(e.target.value) })} className={inputCls} step="0.1" />
-            <input type="date" placeholder="Batch Date" value={fd.batchDate || ''} onChange={e => setFd({ ...fd, batchDate: e.target.value })} className={inputCls} />
-            <input type="date" placeholder="Results Date" value={fd.resultsDate || ''} onChange={e => setFd({ ...fd, resultsDate: e.target.value })} className={inputCls} />
-            <input type="number" placeholder="Avg Package (LPA)" value={fd.averagePackage || ''} onChange={e => setFd({ ...fd, averagePackage: parseFloat(e.target.value) })} className={inputCls} />
-            <input type="number" placeholder="No. of Selected" value={fd.numberOfSelected || ''} onChange={e => setFd({ ...fd, numberOfSelected: parseInt(e.target.value) })} className={inputCls} />
+            <input type="text"   placeholder="Company Name *"    value={fd.companyName    || ''} onChange={e => setFd(f => ({ ...f, companyName:    e.target.value }))} className={inputCls} />
+            <input type="number" placeholder="Cutoff CGPA"       value={fd.cutoffCGPA    ?? ''} onChange={e => setFd(f => ({ ...f, cutoffCGPA:    parseFloat(e.target.value) }))} className={inputCls} step="0.1" />
+            <input type="date"   value={fd.batchDate   || ''}    onChange={e => setFd(f => ({ ...f, batchDate:   e.target.value }))} className={inputCls} />
+            <input type="date"   value={fd.resultsDate || ''}    onChange={e => setFd(f => ({ ...f, resultsDate: e.target.value }))} className={inputCls} />
+            <input type="number" placeholder="Avg Package (LPA)" value={fd.averagePackage ?? ''} onChange={e => setFd(f => ({ ...f, averagePackage: parseFloat(e.target.value) }))} className={inputCls} />
+            <input type="number" placeholder="No. of Selected"   value={fd.numberOfSelected ?? ''} onChange={e => setFd(f => ({ ...f, numberOfSelected: parseInt(e.target.value) }))} className={inputCls} />
           </div>
           <div className="flex gap-2">
             <button onClick={handleAdd} disabled={loading} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50">
@@ -481,7 +456,6 @@ const OnCampusTracker: React.FC<{ userId: string; applications: OnCampusApplicat
           </div>
         </div>
       )}
-
       <div className="grid sm:grid-cols-2 gap-3">
         {companyDrives.map(drive => (
           <div key={drive._id} className="bg-[#0f1117] border border-gray-800 rounded-xl p-4">
@@ -498,12 +472,12 @@ const OnCampusTracker: React.FC<{ userId: string; applications: OnCampusApplicat
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {[
+              {([
                 { label: 'Cutoff CGPA', value: drive.cutoffCGPA?.toFixed(2) || 'N/A' },
                 { label: 'Avg Package', value: drive.averagePackage ? `${drive.averagePackage} LPA` : 'N/A' },
-                { label: 'Selected', value: drive.numberOfSelected || '0' },
-                { label: 'Batch Date', value: drive.batchDate || 'N/A' },
-              ].map(({ label, value }) => (
+                { label: 'Selected',    value: String(drive.numberOfSelected || 0) },
+                { label: 'Batch Date',  value: drive.batchDate || 'N/A' },
+              ]).map(({ label, value }) => (
                 <div key={label} className="bg-[#161b27] border border-gray-800/60 rounded-lg p-2.5">
                   <p className="text-gray-600 text-[10px]">{label}</p>
                   <p className="text-white text-xs font-semibold">{value}</p>
@@ -523,27 +497,24 @@ const OnCampusTracker: React.FC<{ userId: string; applications: OnCampusApplicat
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
 
 const Analytics: React.FC<{ offCampusApps: OffCampusApplication[]; onCampusApps: OnCampusApplication[] }> = ({ offCampusApps, onCampusApps }) => {
-  const total = offCampusApps.length + onCampusApps.length;
-  const responses = offCampusApps.filter(a => ['screening','interview','offer','accepted'].includes(a.status)).length;
-  const interviews = offCampusApps.filter(a => ['interview','offer','accepted'].includes(a.status)).length;
-  const offers = offCampusApps.filter(a => ['offer','accepted'].includes(a.status)).length;
+  const total       = offCampusApps.length + onCampusApps.length;
+  const responses   = offCampusApps.filter(a => ['screening','interview','offer','accepted'].includes(a.status)).length;
+  const interviews  = offCampusApps.filter(a => ['interview','offer','accepted'].includes(a.status)).length;
+  const offers      = offCampusApps.filter(a => ['offer','accepted'].includes(a.status)).length;
   const responseRate = offCampusApps.length > 0 ? (responses / offCampusApps.length * 100) : 0;
 
   const statusData = [
-    { name: 'Applied', value: offCampusApps.filter(a => a.status === 'applied').length, fill: '#3b82f6' },
+    { name: 'Applied',   value: offCampusApps.filter(a => a.status === 'applied').length,   fill: '#3b82f6' },
     { name: 'Screening', value: offCampusApps.filter(a => a.status === 'screening').length, fill: '#f59e0b' },
     { name: 'Interview', value: offCampusApps.filter(a => a.status === 'interview').length, fill: '#a855f7' },
-    { name: 'Offer', value: offCampusApps.filter(a => a.status === 'offer').length, fill: '#10b981' },
-    { name: 'Rejected', value: offCampusApps.filter(a => a.status === 'rejected').length, fill: '#ef4444' },
+    { name: 'Offer',     value: offCampusApps.filter(a => a.status === 'offer').length,     fill: '#10b981' },
+    { name: 'Rejected',  value: offCampusApps.filter(a => a.status === 'rejected').length,  fill: '#ef4444' },
   ];
 
-  const sourceData = [
-    { name: 'LinkedIn', value: offCampusApps.filter(a => a.source === 'linkedin').length },
-    { name: 'Indeed', value: offCampusApps.filter(a => a.source === 'indeed').length },
-    { name: 'Naukri', value: offCampusApps.filter(a => a.source === 'naukri').length },
-    { name: 'Direct', value: offCampusApps.filter(a => a.source === 'direct').length },
-    { name: 'Other', value: offCampusApps.filter(a => a.source === 'other').length },
-  ];
+  const sourceData = (['linkedin','indeed','naukri','direct','other'] as const).map(s => ({
+    name: s[0].toUpperCase() + s.slice(1),
+    value: offCampusApps.filter(a => a.source === s).length,
+  }));
 
   const timelineData = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
@@ -551,45 +522,39 @@ const Analytics: React.FC<{ offCampusApps: OffCampusApplication[]; onCampusApps:
     return { date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), apps: offCampusApps.filter(a => a.appliedDate === ds).length };
   });
 
-  const metrics = [
-    { label: 'Total Applications', value: total, sub: `${offCampusApps.length} off-campus`, icon: Briefcase, color: 'blue' },
-    { label: 'Response Rate', value: `${responseRate.toFixed(1)}%`, sub: `${responses} responses`, icon: TrendingUp, color: 'purple' },
-    { label: 'Interviews', value: interviews, sub: `from ${responses} responses`, icon: CheckCircle, color: 'green' },
-    { label: 'Offers', value: offers, sub: `${onCampusApps.filter(a => a.status === 'offer').length} on-campus`, icon: Users, color: 'yellow' },
-  ];
-
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+    blue:   'bg-blue-500/10 border-blue-500/20 text-blue-400',
     purple: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
-    green: 'bg-green-500/10 border-green-500/20 text-green-400',
+    green:  'bg-green-500/10 border-green-500/20 text-green-400',
     yellow: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
   };
+
+  const metrics = [
+    { label: 'Total Applications', value: total,                         sub: `${offCampusApps.length} off-campus`, icon: Briefcase,   color: 'blue'   },
+    { label: 'Response Rate',      value: `${responseRate.toFixed(1)}%`, sub: `${responses} responses`,             icon: TrendingUp,  color: 'purple' },
+    { label: 'Interviews',         value: interviews,                    sub: `from ${responses} responses`,         icon: CheckCircle, color: 'green'  },
+    { label: 'Offers',             value: offers,                        sub: `${onCampusApps.filter(a => a.status === 'offer').length} on-campus`, icon: Users, color: 'yellow' },
+  ];
 
   return (
     <div className="cc-card mb-5">
       <SectionHeader icon={BarChart2} title="Analytics" subtitle="Application pipeline overview" />
-
-      {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {metrics.map(({ label, value, sub, icon: Icon, color }) => (
           <div key={label} className="bg-[#0f1117] border border-gray-800 rounded-xl p-4">
-            <div className={`w-7 h-7 rounded-lg border flex items-center justify-center mb-3 ${colorMap[color]}`}>
-              <Icon size={13} />
-            </div>
+            <div className={`w-7 h-7 rounded-lg border flex items-center justify-center mb-3 ${colorMap[color]}`}><Icon size={13} /></div>
             <p className="text-white text-2xl font-bold leading-none mb-1">{value}</p>
             <p className="text-gray-500 text-[11px] mb-0.5">{label}</p>
             <p className="text-gray-700 text-[10px]">{sub}</p>
           </div>
         ))}
       </div>
-
-      {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-4">
           <p className="text-gray-400 text-xs font-medium mb-4">Status Distribution</p>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={statusData} cx="50%" cy="50%" outerRadius={75} dataKey="value" label={({ name, value }) => value > 0 ? `${name}` : ''} labelLine={false} fontSize={10}>
+              <Pie data={statusData} cx="50%" cy="50%" outerRadius={75} dataKey="value" label={({ name, value: v }) => v > 0 ? name : ''} labelLine={false} fontSize={10}>
                 {statusData.map((e, i) => <Cell key={i} fill={e.fill} />)}
               </Pie>
               <Tooltip contentStyle={{ background: '#0f1117', border: '1px solid #1f2937', borderRadius: 8, fontSize: 11 }} />
@@ -628,36 +593,37 @@ const Analytics: React.FC<{ offCampusApps: OffCampusApplication[]; onCampusApps:
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 function Placement({ user }: { user: User }) {
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profile' | 'offcampus' | 'oncampus' | 'analytics'>('profile');
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState<'profile' | 'offcampus' | 'oncampus' | 'analytics'>('profile');
+  const [profile, setProfile]           = useState<UserProfile | null>(null);
   const [offCampusApps, setOffCampusApps] = useState<OffCampusApplication[]>([]);
-  const [onCampusApps, setOnCampusApps] = useState<OnCampusApplication[]>([]);
+  const [onCampusApps, setOnCampusApps]   = useState<OnCampusApplication[]>([]);
   const [companyDrives, setCompanyDrives] = useState<CompanyDrive[]>([]);
 
-  useEffect(() => { loadAll(); }, [user.id]);
-
-  const loadAll = async () => {
+  // ✅ loadAll BEFORE useEffect — avoids TDZ error
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [pRes, oRes, ocRes, dRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/placement/profile/${user.id}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/placement/off-campus/${user.id}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/placement/on-campus/${user.id}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/profile/${user.id}`,        { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/off-campus/${user.id}`,     { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/placement/on-campus/${user.id}`,      { credentials: 'include' }),
         fetch(`${API_BASE_URL}/api/placement/company-drives/${user.id}`, { credentials: 'include' }),
       ]);
-      if (pRes.ok) setProfile(await pRes.json());
-      if (oRes.ok) setOffCampusApps(await oRes.json());
+      if (pRes.ok)  setProfile(await pRes.json());
+      if (oRes.ok)  setOffCampusApps(await oRes.json());
       if (ocRes.ok) setOnCampusApps(await ocRes.json());
-      if (dRes.ok) setCompanyDrives(await dRes.json());
+      if (dRes.ok)  setCompanyDrives(await dRes.json());
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+  }, [user.id]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const tabs = [
-    { id: 'profile', label: 'Profile & Resume', icon: BookOpen },
-    { id: 'offcampus', label: 'Off-Campus', icon: Briefcase },
-    { id: 'oncampus', label: 'On-Campus', icon: Award },
-    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+    { id: 'profile',   label: 'Profile & Resume', icon: BookOpen  },
+    { id: 'offcampus', label: 'Off-Campus',        icon: Briefcase },
+    { id: 'oncampus',  label: 'On-Campus',         icon: Award     },
+    { id: 'analytics', label: 'Analytics',         icon: BarChart2 },
   ] as const;
 
   if (loading) return (
@@ -674,23 +640,25 @@ function Placement({ user }: { user: User }) {
     <div className="cc-page-root">
       <style>{ccStyles}</style>
 
-      {/* Page header */}
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-gray-600 text-xs mb-3">
+        <span>AutoJob Flow</span><ChevronRight size={11} /><span className="text-gray-400">Placement Tracker</span>
+      </div>
+
+      {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-gray-600 text-xs mb-3">
-          <span>CareerClock</span><ChevronRight size={12} /><span className="text-gray-400">Placement Tracker</span>
-        </div>
         <h1 className="text-white text-2xl font-bold leading-tight mb-1">Placement Tracker</h1>
         <p className="text-gray-500 text-sm">Manage your profile, resumes, and job applications in one place</p>
       </div>
 
-      {/* Quick stats strip */}
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: 'Applications', value: offCampusApps.length + onCampusApps.length },
-          { label: 'Interviews', value: offCampusApps.filter(a => ['interview','offer','accepted'].includes(a.status)).length },
-          { label: 'Offers', value: offCampusApps.filter(a => ['offer','accepted'].includes(a.status)).length + onCampusApps.filter(a => a.status === 'offer').length },
+        {([
+          { label: 'Applications',   value: offCampusApps.length + onCampusApps.length },
+          { label: 'Interviews',     value: offCampusApps.filter(a => ['interview','offer','accepted'].includes(a.status)).length },
+          { label: 'Offers',         value: offCampusApps.filter(a => ['offer','accepted'].includes(a.status)).length + onCampusApps.filter(a => a.status === 'offer').length },
           { label: 'Company Drives', value: companyDrives.length },
-        ].map(({ label, value }) => (
+        ]).map(({ label, value }) => (
           <div key={label} className="cc-stat-card">
             <p className="text-white text-xl font-bold">{value}</p>
             <p className="text-gray-500 text-xs">{label}</p>
@@ -698,58 +666,23 @@ function Placement({ user }: { user: User }) {
         ))}
       </div>
 
-      {/* Tab bar */}
+      {/* Tabs */}
       <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1 mb-6 overflow-x-auto">
         {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition flex-1 justify-center ${activeTab === id ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
-          >
+          <button key={id} onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition flex-1 justify-center ${activeTab === id ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}>
             <Icon size={13} />{label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'profile' && (
-        <>
-          <ProfileManager userId={user.id} profile={profile} onProfileUpdate={loadAll} />
-          <ResumeManager userId={user.id} resumes={profile?.resumes || []} onUpdate={loadAll} />
-        </>
-      )}
+      {/* Content */}
+      {activeTab === 'profile'   && <><ProfileManager userId={user.id} profile={profile} onProfileUpdate={loadAll} /><ResumeManager userId={user.id} resumes={profile?.resumes || []} onUpdate={loadAll} /></>}
       {activeTab === 'offcampus' && <OffCampusTracker userId={user.id} applications={offCampusApps} onUpdate={loadAll} />}
-      {activeTab === 'oncampus' && <OnCampusTracker userId={user.id} applications={onCampusApps} companyDrives={companyDrives} userCGPA={profile?.cgpa || 0} onUpdate={loadAll} />}
+      {activeTab === 'oncampus'  && <OnCampusTracker  userId={user.id} applications={onCampusApps} companyDrives={companyDrives} userCGPA={profile?.cgpa || 0} onUpdate={loadAll} />}
       {activeTab === 'analytics' && <Analytics offCampusApps={offCampusApps} onCampusApps={onCampusApps} />}
     </div>
   );
 }
-
-// ─── CareerClock shared styles (scoped) ───────────────────────────────────────
-
-const ccStyles = `
-  .cc-page-root {
-    min-height: 100vh;
-    background: #080b12;
-    color: white;
-    padding: 24px 16px 60px;
-    font-family: inherit;
-  }
-  @media (min-width: 640px) {
-    .cc-page-root { padding: 32px 32px 80px; }
-  }
-  .cc-card {
-    background: #12151f;
-    border: 1px solid #1a1f2e;
-    border-radius: 16px;
-    padding: 20px;
-  }
-  .cc-stat-card {
-    background: #12151f;
-    border: 1px solid #1a1f2e;
-    border-radius: 12px;
-    padding: 16px;
-  }
-`;
 
 export default Placement;

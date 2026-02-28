@@ -6,7 +6,7 @@ import {
   BarChart2, Calendar, Zap, Target, Award, Edit2
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = "https://jobflow-backend-ai.onrender.com";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
