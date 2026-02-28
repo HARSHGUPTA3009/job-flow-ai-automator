@@ -46,8 +46,7 @@ const upload = multer({
 });
 const codingRoutes = require('./routes/coding');
 app.use('/api/coding', codingRoutes);
-const LeaderRoutes = require('./routes/leaderbaord');
-app.use('/api/leaderboard', require('api/leaderboard',LeaderRoutes));
+app.use('/api/leaderboard', require('./routes/leaderboard'));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
