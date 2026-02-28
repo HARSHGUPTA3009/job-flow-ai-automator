@@ -12,7 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
 import Placements from "@/pages/Placements";
 import Jobs from "@/pages/Jobs";
-import Coding from "@/pages/Coding";
+import Coding from "@/pages/Coding.tsx";
 import Leaderboard from "@/pages/Leaderboard";
 
 import { Navigation } from "@/components/Navigation";
