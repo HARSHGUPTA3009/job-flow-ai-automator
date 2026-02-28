@@ -1,6 +1,3 @@
-// server/routes/coding.js
-// Coding Tracker API Routes
-// Mount as: app.use('/api/coding', codingRoutes)
 
 const express = require('express');
 const router = express.Router();

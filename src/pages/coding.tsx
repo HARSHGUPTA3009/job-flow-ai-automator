@@ -42,6 +42,7 @@ interface DailyStreak {
   count: number;
 }
 
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLATFORMS: { id: Platform; label: string; color: string; bg: string; border: string }[] = [
@@ -109,6 +110,7 @@ const getPlatform = (id: Platform) => PLATFORMS.find(p => p.id === id) ?? PLATFO
 
 const inputCls = 'cc-input';
 const selectCls = 'cc-input cc-select';
+ 
 
 const SectionHeader = ({ icon: Icon, title, subtitle, action }: { icon: React.ElementType; title: string; subtitle?: string; action?: React.ReactNode }) => (
   <div className="flex items-start justify-between mb-5">
@@ -549,25 +551,32 @@ const PlatformStats: React.FC<{ entries: CodingEntry[] }> = ({ entries }) => {
   );
 };
 
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
-function Coding({ user }: { user: User }) {
-  const [loading, setLoading] = useState(true);
+function Coding({ user }: { user?: User }) {
+  const userId = user?.id ?? null;
+
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'log' | 'starred' | 'stats' | 'profiles'>('log');
   const [entries, setEntries] = useState<CodingEntry[]>([]);
   const [profiles, setProfiles] = useState<PlatformProfile[]>([]);
   const [streak, setStreak] = useState(0);
 
   const loadAll = useCallback(async () => {
+    if (!userId) return;
+
     setLoading(true);
     try {
       const [eRes, pRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/coding/entries/${user.id}`, { credentials: 'include' }),
-        fetch(`${API_BASE_URL}/api/coding/profiles/${user.id}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/coding/entries/${userId}`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/api/coding/profiles/${userId}`, { credentials: 'include' }),
       ]);
+
       if (eRes.ok) {
         const data: CodingEntry[] = await eRes.json();
         setEntries(data);
+
         // Compute streak
         const dates = new Set(data.map(e => e.solvedDate));
         let s = 0;
@@ -578,11 +587,44 @@ function Coding({ user }: { user: User }) {
         }
         setStreak(s);
       }
-      if (pRes.ok) setProfiles(await pRes.json());
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [user.id]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+      if (pRes.ok) {
+        const profilesData = await pRes.json();
+        setProfiles(profilesData);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      loadAll();
+    }
+  }, [userId, loadAll]);
+
+  if (!userId) {
+    return (
+      <div className="cc-page-root flex items-center justify-center">
+        <style>{ccStyles}</style>
+        <p className="text-gray-400 text-sm">Loading user...</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="cc-page-root flex items-center justify-center">
+        <style>{ccStyles}</style>
+        <div className="text-center">
+          <Loader2 className="animate-spin text-blue-500 mx-auto mb-3" size={36} />
+          <p className="text-gray-400 text-sm">Loading coding data…</p>
+        </div>
+      </div>
+    );
+  }
 
   const totalSolved = entries.length;
   const starredCount = entries.filter(e => e.isStarred).length;
@@ -594,29 +636,23 @@ function Coding({ user }: { user: User }) {
     { id: 'profiles', label: 'Profiles', icon: Code2 },
   ] as const;
 
-  if (loading) return (
-    <div className="cc-page-root flex items-center justify-center">
-      <style>{ccStyles}</style>
-      <div className="text-center">
-        <Loader2 className="animate-spin text-blue-500 mx-auto mb-3" size={36} />
-        <p className="text-gray-400 text-sm">Loading coding data…</p>
-      </div>
-    </div>
-  );
-
   return (
     <div className="cc-page-root">
       <style>{ccStyles}</style>
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-gray-600 text-xs mb-4">
-        <span>CareerClock</span><ChevronRight size={11} /><span className="text-gray-400">Coding Tracker</span>
+        <span>CareerClock</span>
+        <ChevronRight size={11} />
+        <span className="text-gray-400">Coding Tracker</span>
       </div>
 
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-white text-2xl font-bold mb-1">Coding Tracker</h1>
-        <p className="text-gray-500 text-sm">Track your DSA progress across LeetCode, Codeforces, CodeChef & HackerRank</p>
+        <p className="text-gray-500 text-sm">
+          Track your DSA progress across LeetCode, Codeforces, CodeChef & HackerRank
+        </p>
       </div>
 
       {/* Stats strip */}
@@ -645,9 +681,14 @@ function Coding({ user }: { user: User }) {
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition flex-1 justify-center ${activeTab === id ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition flex-1 justify-center ${
+              activeTab === id
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+            }`}
           >
-            <Icon size={12} />{label}
+            <Icon size={12} />
+            {label}
           </button>
         ))}
       </div>
@@ -656,20 +697,23 @@ function Coding({ user }: { user: User }) {
       {activeTab === 'log' && (
         <>
           <StreakHeatmap entries={entries} streak={streak} />
-          <QuestionList userId={user.id} entries={entries} onUpdate={loadAll} />
+          <QuestionList userId={userId} entries={entries} onUpdate={loadAll} />
         </>
       )}
+
       {activeTab === 'starred' && (
-        <QuestionList userId={user.id} entries={entries} onUpdate={loadAll} starredOnly />
+        <QuestionList userId={userId} entries={entries} onUpdate={loadAll} starredOnly />
       )}
+
       {activeTab === 'stats' && (
         <>
           <PlatformStats entries={entries} />
           <TopicBreakdown entries={entries} />
         </>
       )}
+
       {activeTab === 'profiles' && (
-        <PlatformProfiles userId={user.id} profiles={profiles} onUpdate={loadAll} />
+        <PlatformProfiles userId={userId} profiles={profiles} onUpdate={loadAll} />
       )}
     </div>
   );
