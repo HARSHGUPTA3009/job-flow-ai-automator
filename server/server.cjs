@@ -11,7 +11,8 @@ require('dotenv').config();
 const { getKey } = require('./config/groqPool');
 // Import routes
 const chatbotRoutes = require('./routes/chatbot');
-
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
