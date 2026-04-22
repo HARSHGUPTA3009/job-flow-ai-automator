@@ -7,8 +7,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"]
     },
+    "ignoreDeprecations": "6.0",
     "noImplicitAny": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,

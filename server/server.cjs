@@ -5,16 +5,62 @@ const session = require('express-session');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const { GridFSBucket } = require('mongodb');
+const redis = require('./config/redis');
+const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
-
+const { getKey } = require('./config/groqPool');
 // Import routes
 const chatbotRoutes = require('./routes/chatbot');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
+app.post('/ai/ats-upload', async (req, res) => {
+  try {
+    let aiResponse;
+    let attempts = 0;
 
-// ============================================================================
+    while (attempts < 3) {
+      try {
+        const apiKey = getKey();
+
+        aiResponse = await axios.post(
+          'https://api.groq.com/openai/v1/chat/completions',
+          {
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an ATS evaluator. Return ONLY JSON.'
+              },
+              {
+                role: 'user',
+                content: '...'
+              }
+            ]
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`
+            }
+          }
+        );
+
+        break;
+
+      } catch (err) {
+        attempts++;
+        if (attempts === 3) throw err;
+      }
+    }
+
+    res.json(aiResponse.data);
+
+  } catch (err) {
+    res.status(500).json({ error: 'ATS failed' });
+  }
+});
+// ===================================================================
 // MIDDLEWARE SETUP
 // ============================================================================
 
@@ -104,45 +150,128 @@ function cleanResumeText(text) {
     .trim();
 }
 
-app.post('/ai/ats-upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'PDF file required' });
+app.post(
+  '/ai/ats-upload',
+  rateLimiter,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'PDF file required' });
+      }
 
-    let rawText    = await extractPdfText(req.file.buffer);
-    let resumeText = cleanResumeText(rawText);
+      // ============================
+      // STEP 1: Extract + Clean
+      // ============================
+      let rawText = await extractPdfText(req.file.buffer);
+      let resumeText = cleanResumeText(rawText);
 
-    if (resumeText.length < 200) {
-      return res.status(400).json({ error: 'Resume extraction failed. Try a clearer PDF.' });
-    }
+      if (resumeText.length < 200) {
+        return res.status(400).json({
+          error: 'Resume extraction failed. Try a clearer PDF.'
+        });
+      }
 
-    const aiResponse = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: 'You are an ATS evaluator. Return ONLY JSON. Score must be integer 0-100.' },
-          {
-            role: 'user',
-            content: `Return JSON:\n{\n  "score": 0,\n  "summary": "",\n  "suggestions": [],\n  "detected_skills": []\n}\nResume:\n${resumeText.slice(0, 4000)}`
+      // ============================
+      // STEP 2: CACHE CHECK
+      // ============================
+      const crypto = require('crypto');
+      const hash = crypto.createHash('sha256').update(resumeText).digest('hex');
+      const cacheKey = `ats:${hash}`;
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log('⚡ ATS Cache HIT');
+        return res.json(JSON.parse(cached));
+      }
+
+      console.log('❌ ATS Cache MISS');
+
+      // ============================
+      // STEP 3: GROQ CALL (LOAD BALANCED)
+      // ============================
+      const apiKey = getKey();
+
+      const aiResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an ATS evaluator. Return ONLY JSON. Score must be integer 0-100.'
+            },
+            {
+              role: 'user',
+              content: `Return JSON:
+{
+  "score": 0,
+  "summary": "",
+  "suggestions": [],
+  "detected_skills": []
+}
+Resume:
+${resumeText.slice(0, 4000)}`
+            }
+          ],
+          temperature: 0,
+          max_tokens: 400
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
           }
-        ],
-        temperature: 0,
-        max_tokens: 400
-      },
-      { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' } }
-    );
+        }
+      );
 
-    let content = aiResponse.data.choices[0].message.content.trim();
-    content = content.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(content);
-    res.json(parsed);
+      // ============================
+      // STEP 4: PARSE RESPONSE
+      // ============================
+      let content = aiResponse.data.choices[0].message.content.trim();
+      content = content.replace(/```json|```/g, '').trim();
 
-  } catch (err) {
-    console.error('ATS Upload Error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'ATS processing failed', details: err.response?.data || err.message });
+      let parsed;
+      try {
+        parsed = JSON.parse(content);
+      } catch (e) {
+        console.error('❌ JSON Parse Error:', content);
+        return res.status(500).json({
+          error: 'Invalid AI response format',
+          raw: content
+        });
+      }
+
+      // ============================
+      // STEP 5: STORE IN CACHE
+      // ============================
+      await redis.set(cacheKey, JSON.stringify(parsed), 'EX', 3600); // 1 hour
+
+      // ============================
+      // STEP 6: RETURN RESPONSE
+      // ============================
+      res.json(parsed);
+
+    } catch (err) {
+      console.error('ATS Upload Error:', err.response?.data || err.message);
+      res.status(500).json({
+        error: 'ATS processing failed',
+        details: err.response?.data || err.message
+      });
+    }
   }
-});
+); 
+// app.get('/ai/ats-status/:id', async (req, res) => {
+//   const atsQueue = require('./queues/atsQueue');
 
+//   const job = await atsQueue.getJob(req.params.id);
+//   const state = await job.getState();
+
+//   res.json({
+//     state,
+//     result: job.returnvalue || null
+//   });
+// });
 app.post('/ai/cold-emails', async (req, res) => {
   try {
     const { userName, contacts } = req.body;
@@ -152,7 +281,7 @@ app.post('/ai/cold-emails', async (req, res) => {
     }
 
     const prompt = `You are a professional cold email writer.\nGenerate personalized cold emails.\nReturn ONLY valid JSON. No markdown. No explanation. No backticks.\nFormat EXACTLY:\n{\n  "emails": [\n    {\n      "email": "string",\n      "content": "Subject: ...\\n\\nBody..."\n    }\n  ]\n}\nUser Name: ${userName}\nContacts:\n${JSON.stringify(contacts)}`;
-
+    const { getKey } = require('./config/groqPool');
     const aiResponse = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -164,7 +293,7 @@ app.post('/ai/cold-emails', async (req, res) => {
         temperature: 0.2,
         max_tokens: 800
       },
-      { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' } }
+      { headers: { Authorization: `Bearer ${getKey()}`, 'Content-Type': 'application/json' } }
     );
 
     let content = aiResponse.data.choices[0].message.content.trim();
@@ -197,8 +326,6 @@ app.post('/ai/cold-emails', async (req, res) => {
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
