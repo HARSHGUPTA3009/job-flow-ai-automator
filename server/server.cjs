@@ -140,57 +140,72 @@ app.post(
       // STEP 3: GROQ CALL (LOAD BALANCED)
       // ============================
       const apiKey = getKey();
+const aiResponse = await axios.post(
+  'https://api.groq.com/openai/v1/chat/completions',
+  {
+    model: 'llama-3.1-8b-instant',
+    messages: [
+      {
+        role: 'system',
+        content: `
+You are an ATS evaluator.
 
-      const aiResponse = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are an ATS evaluator. Return ONLY JSON. Score must be integer 0-100.'
-            },
-            {
-              role: 'user',
-              content: `Return JSON:
+STRICT RULES:
+- Return ONLY valid JSON
+- Do NOT include any text before or after JSON
+- Do NOT use markdown
+- Do NOT explain anything
+- Score must be integer between 0-100
+
+Output format EXACTLY:
 {
-  "score": 0,
-  "summary": "",
-  "suggestions": [],
-  "detected_skills": []
+  "score": number,
+  "summary": string,
+  "suggestions": string[],
+  "detected_skills": string[]
 }
-Resume:
-${resumeText.slice(0, 4000)}`
-            }
-          ],
-          temperature: 0,
-          max_tokens: 400
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
+        `.trim()
+      },
+      {
+        role: 'user',
+        content: resumeText.slice(0, 3000)
+      }
+    ],
+    temperature: 0,
+    max_tokens: 400,
+    response_format: { type: "json_object" } // 🔥 IMPORTANT
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    }
+  }
+);
       // ============================
       // STEP 4: PARSE RESPONSE
       // ============================
-      let content = aiResponse.data.choices[0].message.content.trim();
-      content = content.replace(/```json|```/g, '').trim();
+     let content = aiResponse?.data?.choices?.[0]?.message?.content;
 
-      let parsed;
-      try {
-        parsed = JSON.parse(content);
-      } catch (e) {
-        console.error('❌ JSON Parse Error:', content);
-        return res.status(500).json({
-          error: 'Invalid AI response format',
-          raw: content
-        });
-      }
+if (!content) {
+  return res.status(500).json({
+    error: "Invalid AI response",
+    raw: aiResponse.data
+  });
+}
+
+let parsed;
+
+try {
+  parsed = JSON.parse(content);
+} catch (err) {
+  console.error("❌ JSON PARSE ERROR:", content);
+
+  return res.status(500).json({
+    error: "AI returned invalid JSON",
+    raw: content
+  });
+}
 
       // ============================
       // STEP 5: STORE IN CACHE
