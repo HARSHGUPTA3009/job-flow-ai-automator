@@ -14,64 +14,9 @@ const chatbotRoutes = require('./routes/chatbot');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const app = express();
-app.set('trust proxy', 1);
-const PORT = process.env.PORT || 3001;
-app.post('/ai/ats-upload', async (req, res) => {
-  try {
-    let aiResponse;
-    let attempts = 0;
-
-    while (attempts < 3) {
-      try {
-        const apiKey = getKey();
-
-        aiResponse = await axios.post(
-          'https://api.groq.com/openai/v1/chat/completions',
-          {
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an ATS evaluator. Return ONLY JSON.'
-              },
-              {
-                role: 'user',
-                content: '...'
-              }
-            ]
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`
-            }
-          }
-        );
-
-        break;
-
-      } catch (err) {
-        attempts++;
-        if (attempts === 3) throw err;
-      }
-    }
-
-    res.json(aiResponse.data);
-
-  } catch (err) {
-    res.status(500).json({ error: 'ATS failed' });
-  }
-});
-// ===================================================================
-// MIDDLEWARE SETUP
-// ============================================================================
-
-// ✅ CORS — must be first, no trailing slash, preflight handled
 app.use(cors({
   origin: [
     'https://autojobflow.vercel.app',
-    'http://localhost:8080',
-    'http://localhost:5173',
-    'http://localhost:3000',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -81,6 +26,10 @@ app.options('*', cors()); // handle preflight requests
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.set('trust proxy', 1);
+const PORT = process.env.PORT || 3001;
+
 
 // ============================================================================
 // SESSION + PASSPORT
