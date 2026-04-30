@@ -58,7 +58,7 @@ const App = () => {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("https://jobflow-backend-ai.onrender.com/auth/status", { credentials: "include" });
+      const res = await fetch("https://job-flow-ai-automator.onrender.com/auth/status", { credentials: "include" });
       const data = await res.json();
       if (data.authenticated && data.user) {
         setUser({ id: data.user.id || data.user.email, email: data.user.email, name: data.user.name });

@@ -6,7 +6,7 @@ import { Chrome } from "lucide-react";
 const SignIn = () => {
   const handleGoogleSignIn = () => {
     // This will be connected to your backend Google OAuth endpoint
-   window.location.href = "https://jobflow-backend-ai.onrender.com/auth/google";
+   window.location.href = "https://job-flow-ai-automator.onrender.com/auth/google";
 
   };
 

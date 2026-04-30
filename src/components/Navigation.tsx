@@ -35,7 +35,7 @@ export const Navigation = ({ user, onLogout }: NavigationProps) => {
 
   const handleSignOut = async () => {
     try {
-      await fetch("https://jobflow-backend-ai.onrender.com/auth/logout", { method: "POST", credentials: "include" });
+      await fetch("https://job-flow-ai-automator.onrender.com/auth/logout", { method: "POST", credentials: "include" });
       onLogout(); navigate("/"); setIsOpen(false);
     } catch (e) { console.error(e); }
   };
