@@ -1,6 +1,7 @@
 const Redis = require('ioredis');
 
 const redis = new Redis(process.env.REDIS_URL, {
+  tls: {},
   connectTimeout: 10000,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
