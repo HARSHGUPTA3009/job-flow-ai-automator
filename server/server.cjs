@@ -142,6 +142,14 @@ app.post(
       const apiKey = getKey();
 const aiResponse = await axios.post(
   'https://api.groq.com/openai/v1/chat/completions',
+  payload,
+  {
+    timeout: 30000,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    }
+  },
   {
     model: 'llama-3.1-8b-instant',
     messages: [
