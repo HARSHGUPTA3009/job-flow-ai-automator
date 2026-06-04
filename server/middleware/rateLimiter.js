@@ -6,8 +6,8 @@ const redis = new Redis(process.env.REDIS_URL);
 
 const limiter = new RateLimiterRedis({
   storeClient: redis,
-  points: 5,
-  duration: 60
+  points: 50,
+  duration: 300
 });
 
 module.exports = async (req, res, next) => {
