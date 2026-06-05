@@ -6,7 +6,7 @@ import {
   Users, Target, Clock, Info, X, CheckCircle2, BookOpen,
   Filter, Search,
 } from 'lucide-react';
-import { questions } from '@/data/questions';
+import { QUESTIONS } from '../data/questions.js';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -19,7 +19,7 @@ export const SCORE_POLICY = {
   starBonus: 1,     // per starred/bookmarked question
 } as const;
 
-export const QUESTION_BANK = questions.reduce((acc, q) => {
+export const QUESTION_BANK = QUESTIONS.reduce((acc, q) => {
   const topic = q.topic;
 
   if (!acc[topic]) {
@@ -46,7 +46,7 @@ export const QUESTION_BANK = questions.reduce((acc, q) => {
 }>);
 
 
-export const TOTAL_QUESTIONS = questions.length;
+export const TOTAL_QUESTIONS = QUESTIONS.length;
 
 export const TOPIC_ORDER = [
   "Bits & Manipulation", "Basic Sorting", "Arrays", "Strings", "Binary Search",
