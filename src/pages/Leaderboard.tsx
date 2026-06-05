@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Trophy, Flame, Star, TrendingUp, TrendingDown,
@@ -5,15 +6,11 @@ import {
   Users, Target, Clock, Info, X, CheckCircle2, BookOpen,
   Filter, Search,
 } from 'lucide-react';
+import { questions } from '../data/questions';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-/**
- * SCORE POLICY — mirrors backend calculation.
- * Change here AND in your backend to keep them in sync.
- */
 export const SCORE_POLICY = {
   easy: 1,
   medium: 3,
@@ -22,31 +19,34 @@ export const SCORE_POLICY = {
   starBonus: 1,     // per starred/bookmarked question
 } as const;
 
-/**
- * EXACT question counts from questions.js (538 total).
- * Used to show per-topic progress bars and "X / Y solved" display.
- */
-export const QUESTION_BANK: Record<string, { easy: number; medium: number; hard: number; total: number }> = {
-  "Bits & Manipulation":        { easy: 13, medium: 10, hard: 3,  total: 26  },
-  "Basic Sorting":              { easy: 3,  medium: 2,  hard: 0,  total: 5   },
-  "Arrays":                     { easy: 25, medium: 36, hard: 8,  total: 69  },
-  "Strings":                    { easy: 7,  medium: 12, hard: 6,  total: 25  },
-  "Binary Search":              { easy: 10, medium: 17, hard: 7,  total: 34  },
-  "Linked List":                { easy: 9,  medium: 22, hard: 3,  total: 34  },
-  "Recursion & Backtracking":   { easy: 0,  medium: 21, hard: 9,  total: 30  },
-  "Stacks & Queues":            { easy: 16, medium: 25, hard: 4,  total: 45  },
-  "Sliding Window":             { easy: 4,  medium: 14, hard: 9,  total: 27  },
-  "Prefix Sum & Hash":          { easy: 10, medium: 6,  hard: 0,  total: 16  },
-  "Heaps":                      { easy: 4,  medium: 14, hard: 5,  total: 23  },
-  "Greedy":                     { easy: 5,  medium: 14, hard: 1,  total: 20  },
-  "BinaryTree":                 { easy: 17, medium: 21, hard: 6,  total: 44  },
-  "BST":                        { easy: 3,  medium: 14, hard: 3,  total: 20  },
-  "Graphs":                     { easy: 3,  medium: 35, hard: 20, total: 58  },
-  "Dynamic Programming":        { easy: 4,  medium: 31, hard: 17, total: 52  },
-  "Tries":                      { easy: 0,  medium: 8,  hard: 2,  total: 10  },
-};
+export const QUESTION_BANK = questions.reduce((acc, q) => {
+  const topic = q.topic;
 
-export const TOTAL_QUESTIONS = 538;
+  if (!acc[topic]) {
+    acc[topic] = {
+      easy: 0,
+      medium: 0,
+      hard: 0,
+      total: 0,
+    };
+  }
+
+  acc[topic].total++;
+
+  if (q.diff === 'easy') acc[topic].easy++;
+  else if (q.diff === 'medium') acc[topic].medium++;
+  else if (q.diff === 'hard') acc[topic].hard++;
+
+  return acc;
+}, {} as Record<string, {
+  easy: number;
+  medium: number;
+  hard: number;
+  total: number;
+}>);
+
+
+export const TOTAL_QUESTIONS = questions.length;
 
 export const TOPIC_ORDER = [
   "Bits & Manipulation", "Basic Sorting", "Arrays", "Strings", "Binary Search",
