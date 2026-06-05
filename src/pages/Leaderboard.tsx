@@ -6,7 +6,7 @@ import {
   Users, Target, Clock, Info, X, CheckCircle2, BookOpen,
   Filter, Search,
 } from 'lucide-react';
-import { questions } from '../data/questions';
+import { questions } from '@/data/questions';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
