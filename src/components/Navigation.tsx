@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { to: "/",            label: "Home",         icon: Home      },
   { to: "/placements",  label: "Placements",   icon: Briefcase },
   { to: "/dashboard",   label: "ATS / Email",  icon: Bot       },
+  { to: "/leaderbaord", label:"Leaderboard",icon:Trophy}
 ];
 
 const GitHubIcon = ({ size = 16 }: { size?: number }) => (

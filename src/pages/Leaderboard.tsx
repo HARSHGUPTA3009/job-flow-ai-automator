@@ -1,13 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable react-refresh/only-export-components */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Trophy, Flame, Star, TrendingUp, TrendingDown,
   Minus, RefreshCw, ChevronRight, Zap, Crown, Medal,
   Users, Target, Clock, Info, X, CheckCircle2, BookOpen,
-  Filter, Search,
+  Filter, Search, ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { QUESTIONS } from '../data/questions.js';
-
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -15,36 +15,19 @@ export const SCORE_POLICY = {
   easy: 1,
   medium: 3,
   hard: 7,
-  streakBonus: 2,   // per day of active streak, capped at 30 days
-  starBonus: 1,     // per starred/bookmarked question
+  streakBonus: 2,
+  starBonus: 1,
 } as const;
 
 export const QUESTION_BANK = QUESTIONS.reduce((acc, q) => {
   const topic = q.topic;
-
-  if (!acc[topic]) {
-    acc[topic] = {
-      easy: 0,
-      medium: 0,
-      hard: 0,
-      total: 0,
-    };
-  }
-
+  if (!acc[topic]) acc[topic] = { easy: 0, medium: 0, hard: 0, total: 0 };
   acc[topic].total++;
-
   if (q.diff === 'easy') acc[topic].easy++;
   else if (q.diff === 'medium') acc[topic].medium++;
   else if (q.diff === 'hard') acc[topic].hard++;
-
   return acc;
-}, {} as Record<string, {
-  easy: number;
-  medium: number;
-  hard: number;
-  total: number;
-}>);
-
+}, {} as Record<string, { easy: number; medium: number; hard: number; total: number }>);
 
 export const TOTAL_QUESTIONS = QUESTIONS.length;
 
@@ -64,16 +47,8 @@ interface User {
   picture?: string;
 }
 
-/**
- * Per-topic solved breakdown stored per user.
- * Each key is a topic name; value is { easy, medium, hard } solved.
- */
 interface TopicProgress {
-  [topic: string]: {
-    easy: number;
-    medium: number;
-    hard: number;
-  };
+  [topic: string]: { easy: number; medium: number; hard: number };
 }
 
 interface LeaderboardEntry {
@@ -141,9 +116,17 @@ const styles = `
   .badge-rising { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.28); }
   .badge-streak { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.28); }
 
+  .diff-easy   { background: rgba(74,222,128,0.1);  color: #4ade80;  border: 1px solid rgba(74,222,128,0.2);  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+  .diff-medium { background: rgba(250,204,21,0.1);  color: #facc15;  border: 1px solid rgba(250,204,21,0.2);  font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+  .diff-hard   { background: rgba(248,113,113,0.1); color: #f87171;  border: 1px solid rgba(248,113,113,0.2); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
+
   .search-box { background: #0f1117; border: 1px solid #1a1f2e; color: white; border-radius: 10px; padding: 8px 12px 8px 36px; font-size: 13px; outline: none; transition: border-color 0.15s; }
   .search-box:focus { border-color: rgba(59,130,246,0.4); }
   .search-box::placeholder { color: #4b5563; }
+
+  .q-search-box { background: #0f1117; border: 1px solid #1a1f2e; color: white; border-radius: 10px; padding: 8px 12px 8px 36px; font-size: 13px; outline: none; transition: border-color 0.15s; width: 100%; }
+  .q-search-box:focus { border-color: rgba(59,130,246,0.4); }
+  .q-search-box::placeholder { color: #4b5563; }
 
   .topic-progress-bar { height: 3px; background: #1a1f2e; border-radius: 2px; overflow: hidden; margin-top: 2px; }
   .topic-progress-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
@@ -152,6 +135,27 @@ const styles = `
 
   .skeleton { background: linear-gradient(90deg, #12151f 25%, #1a1f2e 50%, #12151f 75%);
     background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+
+  .q-row { transition: background 0.15s; border-bottom: 1px solid #1a1f2e; }
+  .q-row:last-child { border-bottom: none; }
+  .q-row:hover { background: rgba(255,255,255,0.018); }
+
+  .list-tag { font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+  .list-nc   { background: rgba(167,139,250,0.12); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+  .list-lc75 { background: rgba(96,165,250,0.12);  color: #60a5fa; border: 1px solid rgba(96,165,250,0.2); }
+  .list-lc150{ background: rgba(52,211,153,0.12);  color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+  .list-apna { background: rgba(244,114,182,0.12); color: #f472b6; border: 1px solid rgba(244,114,182,0.2); }
+  .list-striver { background: rgba(251,146,60,0.12); color: #fb923c; border: 1px solid rgba(251,146,60,0.2); }
+
+  .topic-section-header { background: #0d1018; border-bottom: 1px solid #1a1f2e; padding: 10px 16px; cursor: pointer; transition: background 0.15s; user-select: none; }
+  .topic-section-header:hover { background: #111420; }
+
+  .q-link { color: #93c5fd; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 500; transition: color 0.15s; }
+  .q-link:hover { color: #60a5fa; }
+
+  .approach-text { font-size: 11px; color: #4b5563; font-family: 'Courier New', monospace; margin-top: 2px; }
+
+  .section-divider { border: none; border-top: 1px solid #1a1f2e; margin: 32px 0; }
 `;
 
 // ─── Score Calculator ─────────────────────────────────────────────────────────
@@ -189,16 +193,7 @@ const RankChange = ({ curr, prev }: { curr: number; prev?: number }) => {
   );
 };
 
-/** Renders Google profile picture if available, otherwise initials avatar */
-const Avatar = ({
-  name,
-  picture,
-  size = 'md',
-}: {
-  name: string;
-  picture?: string;
-  size?: 'sm' | 'md' | 'lg';
-}) => {
+const Avatar = ({ name, picture, size = 'md' }: { name: string; picture?: string; size?: 'sm' | 'md' | 'lg' }) => {
   const colors = [
     'from-blue-500 to-cyan-500', 'from-purple-500 to-pink-500',
     'from-green-500 to-teal-500', 'from-orange-500 to-red-500',
@@ -206,16 +201,11 @@ const Avatar = ({
   ];
   const color = colors[(name.charCodeAt(0) || 0) % colors.length];
   const sz = size === 'sm' ? 'w-8 h-8 text-xs' : size === 'lg' ? 'w-12 h-12 text-base' : 'w-9 h-9 text-sm';
-
   if (picture) {
     return (
-      <img
-        src={picture}
-        alt={name}
-        referrerPolicy="no-referrer"
+      <img src={picture} alt={name} referrerPolicy="no-referrer"
         className={`${sz} rounded-full object-cover flex-shrink-0`}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
     );
   }
   return (
@@ -230,11 +220,7 @@ const BadgePill = ({ badge }: { badge: string }) => {
     gold: '🥇 Gold', silver: '🥈 Silver', bronze: '🥉 Bronze',
     rising: '🚀 Rising', streak: '🔥 Streak King',
   };
-  return (
-    <span className={`badge-${badge} text-[10px] font-semibold px-2 py-0.5 rounded-full`}>
-      {labels[badge]}
-    </span>
-  );
+  return <span className={`badge-${badge} text-[10px] font-semibold px-2 py-0.5 rounded-full`}>{labels[badge]}</span>;
 };
 
 // ─── POLICY MODAL ─────────────────────────────────────────────────────────────
@@ -250,22 +236,16 @@ const PolicyModal = ({ onClose }: { onClose: () => void }) => (
           </div>
           <h3 className="text-white font-semibold">Scoring Policy</h3>
         </div>
-        <button onClick={onClose} className="text-gray-600 hover:text-white transition">
-          <X size={16} />
-        </button>
+        <button onClick={onClose} className="text-gray-600 hover:text-white transition"><X size={16} /></button>
       </div>
-
-      <p className="text-gray-500 text-xs mb-4">
-        Scores are computed from your Coding Tracker data and refresh every 60 seconds.
-      </p>
-
+      <p className="text-gray-500 text-xs mb-4">Scores are computed from your Coding Tracker data and refresh every 60 seconds.</p>
       <div className="space-y-2 mb-5">
         {[
-          { label: 'Easy Question',   pts: `+${SCORE_POLICY.easy}`,                       color: 'text-green-400',  icon: '🟢' },
-          { label: 'Medium Question', pts: `+${SCORE_POLICY.medium}`,                     color: 'text-yellow-400', icon: '🟡' },
-          { label: 'Hard Question',   pts: `+${SCORE_POLICY.hard}`,                       color: 'text-red-400',    icon: '🔴' },
+          { label: 'Easy Question',   pts: `+${SCORE_POLICY.easy}`,   color: 'text-green-400',  icon: '🟢' },
+          { label: 'Medium Question', pts: `+${SCORE_POLICY.medium}`, color: 'text-yellow-400', icon: '🟡' },
+          { label: 'Hard Question',   pts: `+${SCORE_POLICY.hard}`,   color: 'text-red-400',    icon: '🔴' },
           { label: 'Daily Streak (×days, max 30)', pts: `+${SCORE_POLICY.streakBonus}/day`, color: 'text-orange-400', icon: '🔥' },
-          { label: 'Starred Question', pts: `+${SCORE_POLICY.starBonus}`,                 color: 'text-yellow-400', icon: '⭐' },
+          { label: 'Starred Question', pts: `+${SCORE_POLICY.starBonus}`, color: 'text-yellow-400', icon: '⭐' },
         ].map(({ label, pts, color, icon }) => (
           <div key={label} className="flex items-center justify-between bg-[#0f1117] border border-gray-800 rounded-xl px-4 py-2.5">
             <span className="text-gray-300 text-xs">{icon} {label}</span>
@@ -273,7 +253,6 @@ const PolicyModal = ({ onClose }: { onClose: () => void }) => (
           </div>
         ))}
       </div>
-
       <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-4 mb-4">
         <p className="text-gray-400 text-xs font-semibold mb-2 flex items-center gap-1.5">
           <BookOpen size={11} /> Question Bank ({TOTAL_QUESTIONS} total)
@@ -294,7 +273,6 @@ const PolicyModal = ({ onClose }: { onClose: () => void }) => (
           })}
         </div>
       </div>
-
       <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-4">
         <p className="text-gray-500 text-xs font-semibold mb-2">Badge Criteria</p>
         <div className="space-y-1.5 text-xs text-gray-400">
@@ -316,11 +294,7 @@ const Podium = ({ top3, myUserId }: { top3: LeaderboardEntry[]; myUserId: string
   const heights = ['h-20', 'h-28', 'h-16'];
   const podiumRanks = [2, 1, 3];
   const rankColors = ['text-slate-400', 'text-yellow-400', 'text-amber-700'];
-  const rankBg = [
-    'bg-slate-400/10 border-slate-400/20',
-    'bg-yellow-400/10 border-yellow-400/20',
-    'bg-amber-700/10 border-amber-700/20',
-  ];
+  const rankBg = ['bg-slate-400/10 border-slate-400/20', 'bg-yellow-400/10 border-yellow-400/20', 'bg-amber-700/10 border-amber-700/20'];
 
   return (
     <div className="lb-card mb-5">
@@ -339,13 +313,9 @@ const Podium = ({ top3, myUserId }: { top3: LeaderboardEntry[]; myUserId: string
                 )}
               </div>
               <div className="text-center">
-                <p className="text-white text-xs font-semibold truncate max-w-[100px]">
-                  {entry.name.split(' ')[0]}
-                </p>
+                <p className="text-white text-xs font-semibold truncate max-w-[100px]">{entry.name.split(' ')[0]}</p>
                 <p className={`text-[11px] font-bold ${rankColors[i]}`}>{entry.totalScore} pts</p>
-                <p className="text-gray-600 text-[10px]">
-                  {entry.totalSolved}/{TOTAL_QUESTIONS} solved
-                </p>
+                <p className="text-gray-600 text-[10px]">{entry.totalSolved}/{TOTAL_QUESTIONS} solved</p>
               </div>
               <div className={`w-full ${heights[i]} ${rankBg[i]} border rounded-t-xl flex items-center justify-center`}>
                 <span className={`text-2xl font-black ${rankColors[i]}`}>#{podiumRanks[i]}</span>
@@ -376,13 +346,7 @@ const TopicProgressRow = ({ entry }: { entry: LeaderboardEntry }) => {
               <span className="text-gray-600 text-[10px] flex-shrink-0">{solved}/{bank?.total ?? 0}</span>
             </div>
             <div className="topic-progress-bar">
-              <div
-                className="topic-progress-fill"
-                style={{
-                  width: `${pct}%`,
-                  background: pct >= 80 ? '#4ade80' : pct >= 50 ? '#facc15' : '#60a5fa',
-                }}
-              />
+              <div className="topic-progress-fill" style={{ width: `${pct}%`, background: pct >= 80 ? '#4ade80' : pct >= 50 ? '#facc15' : '#60a5fa' }} />
             </div>
             <div className="flex gap-1.5 mt-0.5">
               <span className="text-green-500 text-[9px]">{progress.easy}E</span>
@@ -396,26 +360,216 @@ const TopicProgressRow = ({ entry }: { entry: LeaderboardEntry }) => {
   );
 };
 
+// ─── QUESTION BANK SECTION ────────────────────────────────────────────────────
+
+const LIST_LABEL: Record<string, string> = { nc: 'NeetCode', lc75: 'LC 75', lc150: 'LC 150', apna: 'Apna', striver: 'Striver' };
+
+const QuestionBankSection = () => {
+  const [qSearch, setQSearch]           = useState('');
+  const [qDiff, setQDiff]               = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [qTopic, setQTopic]             = useState<string>('all');
+  const [qList, setQList]               = useState<string>('all');
+  const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
+
+  const toggleTopic = (t: string) =>
+    setCollapsedTopics(prev => { const s = new Set(prev); s.has(t) ? s.delete(t) : s.add(t); return s; });
+
+  const filtered = QUESTIONS.filter(q => {
+    if (qDiff !== 'all' && q.diff !== qDiff) return false;
+    if (qTopic !== 'all' && q.topic !== qTopic) return false;
+    if (qList !== 'all' && !q.lists.includes(qList)) return false;
+    if (qSearch) {
+      const s = qSearch.toLowerCase();
+      return q.name.toLowerCase().includes(s) || q.topic.toLowerCase().includes(s) || String(q.num).includes(s);
+    }
+    return true;
+  });
+
+  // Group by topic preserving TOPIC_ORDER
+  const grouped = TOPIC_ORDER.reduce((acc, t) => {
+    const qs = filtered.filter(q => q.topic === t);
+    if (qs.length) acc[t] = qs;
+    return acc;
+  }, {} as Record<string, typeof QUESTIONS>);
+
+  const totalFiltered = filtered.length;
+
+  return (
+    <div className="mt-8">
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <h2 className="text-white text-xl font-bold flex items-center gap-2">
+            <BookOpen size={20} className="text-purple-400" />
+            Question Bank
+          </h2>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {totalFiltered} question{totalFiltered !== 1 ? 's' : ''} · {TOPIC_ORDER.length} topics
+          </p>
+        </div>
+
+        {/* Collapse all / expand all */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setCollapsedTopics(new Set(TOPIC_ORDER))}
+            className="text-xs text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded-lg transition"
+          >
+            Collapse all
+          </button>
+          <button
+            onClick={() => setCollapsedTopics(new Set())}
+            className="text-xs text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded-lg transition"
+          >
+            Expand all
+          </button>
+        </div>
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
+        {/* Difficulty */}
+        <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
+          {(['all', 'easy', 'medium', 'hard'] as const).map(d => (
+            <button key={d} onClick={() => setQDiff(d)} className={`tab-btn ${qDiff === d ? 'active' : ''}`}>
+              {d === 'all' ? 'All' : d.charAt(0).toUpperCase() + d.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* List filter */}
+        <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
+          {(['all', 'nc', 'lc75', 'lc150', 'striver', 'apna'] as const).map(l => (
+            <button key={l} onClick={() => setQList(l)} className={`tab-btn ${qList === l ? 'active' : ''}`}>
+              {l === 'all' ? 'All Lists' : LIST_LABEL[l]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Topic chips */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <button className={`topic-chip flex-shrink-0 ${qTopic === 'all' ? 'active' : ''}`} onClick={() => setQTopic('all')}>
+          All Topics
+        </button>
+        {TOPIC_ORDER.map(t => (
+          <button key={t} className={`topic-chip flex-shrink-0 ${qTopic === t ? 'active' : ''}`} onClick={() => setQTopic(t)}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-5 w-full sm:w-80">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search questions…"
+          value={qSearch}
+          onChange={e => setQSearch(e.target.value)}
+          className="q-search-box"
+        />
+        {qSearch && (
+          <button onClick={() => setQSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400">
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Questions grouped by topic */}
+      {Object.keys(grouped).length === 0 ? (
+        <div className="lb-card text-center py-16 text-gray-600">
+          <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No questions match your filters.</p>
+        </div>
+      ) : (
+        <div className="lb-card p-0 overflow-hidden">
+          {Object.entries(grouped).map(([topic, qs]) => {
+            const isCollapsed = collapsedTopics.has(topic);
+            const bank = QUESTION_BANK[topic];
+            const easyCount   = qs.filter(q => q.diff === 'easy').length;
+            const mediumCount = qs.filter(q => q.diff === 'medium').length;
+            const hardCount   = qs.filter(q => q.diff === 'hard').length;
+
+            return (
+              <div key={topic}>
+                {/* Topic header */}
+                <div className="topic-section-header flex items-center justify-between" onClick={() => toggleTopic(topic)}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-white text-sm font-semibold">{topic}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-green-500 text-[10px] font-medium">{easyCount}E</span>
+                      <span className="text-yellow-500 text-[10px] font-medium">{mediumCount}M</span>
+                      <span className="text-red-500 text-[10px] font-medium">{hardCount}H</span>
+                      <span className="text-gray-600 text-[10px]">· {qs.length}/{bank?.total ?? 0} shown</span>
+                    </div>
+                  </div>
+                  {isCollapsed
+                    ? <ChevronDown size={14} className="text-gray-600" />
+                    : <ChevronUp size={14} className="text-gray-600" />
+                  }
+                </div>
+
+                {/* Questions list */}
+                {!isCollapsed && (
+                  <div>
+                    {qs.map((q, idx) => (
+                      <div key={q.id} className="q-row px-4 py-3 flex items-start gap-3" style={{ animationDelay: `${idx * 10}ms` }}>
+                        {/* Number */}
+                        <span className="text-gray-700 text-[11px] font-mono w-10 flex-shrink-0 pt-0.5 text-right">
+                          {typeof q.num === 'number' ? q.num : '—'}
+                        </span>
+
+                        {/* Main content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <a href={q.link} target="_blank" rel="noopener noreferrer" className="q-link">
+                              {q.name}
+                              <ExternalLink size={10} />
+                            </a>
+                            <span className={`diff-${q.diff}`}>{q.diff}</span>
+                            {/* List tags */}
+                            <div className="flex gap-1 flex-wrap">
+                              {q.lists.map(l => (
+                                <span key={l} className={`list-tag list-${l}`}>{LIST_LABEL[l] ?? l}</span>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Approach hint */}
+                          {q.approach && (
+                            <p className="approach-text truncate max-w-xl">{q.approach}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── MAIN LEADERBOARD ─────────────────────────────────────────────────────────
 
 function Leaderboard({ user }: { user: User }) {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [entries, setEntries]         = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [showPolicy, setShowPolicy] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'college' | 'weekly'>('all');
-  const [diffFilter, setDiffFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [showPolicy, setShowPolicy]   = useState(false);
+  const [filter, setFilter]           = useState<'all' | 'college' | 'weekly'>('all');
+  const [diffFilter, setDiffFilter]   = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
   const [topicFilter, setTopicFilter] = useState<string>('all');
-  const [search, setSearch] = useState('');
-  const [countdown, setCountdown] = useState(60);
+  const [search, setSearch]           = useState('');
+  const [countdown, setCountdown]     = useState(60);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevEntriesRef = useRef<LeaderboardEntry[]>([]);
-
-  // ── Data fetch ──────────────────────────────────────────────────────────────
 
   const fetchLeaderboard = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true);
@@ -424,17 +578,11 @@ function Leaderboard({ user }: { user: User }) {
       if (diffFilter !== 'all') params.append('diff', diffFilter);
       if (topicFilter !== 'all') params.append('topic', topicFilter);
 
-      const res = await fetch(`${API_BASE_URL}/api/leaderboard?${params}`, {
-        credentials: 'include',
-      });
-
+      const res = await fetch(`${API_BASE_URL}/api/leaderboard?${params}`, { credentials: 'include' });
       if (res.ok) {
         const data: LeaderboardEntry[] = await res.json();
         const prev = prevEntriesRef.current;
-        const merged = data.map(e => ({
-          ...e,
-          prevRank: prev.find(p => p.userId === e.userId)?.rank,
-        }));
+        const merged = data.map(e => ({ ...e, prevRank: prev.find(p => p.userId === e.userId)?.rank }));
         prevEntriesRef.current = merged;
         setEntries(merged);
         setLastUpdated(new Date());
@@ -458,8 +606,6 @@ function Leaderboard({ user }: { user: User }) {
     };
   }, [fetchLeaderboard]);
 
-  // ── Derived data ────────────────────────────────────────────────────────────
-
   const filteredEntries = entries.filter(e =>
     e.name.toLowerCase().includes(search.toLowerCase()) ||
     e.email.toLowerCase().includes(search.toLowerCase())
@@ -468,8 +614,6 @@ function Leaderboard({ user }: { user: User }) {
   const myEntry  = entries.find(e => e.userId === user.id);
   const maxScore = entries[0]?.totalScore ?? 1;
   const top3     = entries.slice(0, 3);
-
-  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="lb-root">
@@ -521,10 +665,10 @@ function Leaderboard({ user }: { user: User }) {
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Total Coders',    value: entries.length,                            icon: Users,     color: 'text-blue-400'   },
-          { label: 'Your Rank',       value: myEntry ? `#${myEntry.rank}` : '—',         icon: Trophy,    color: 'text-yellow-400' },
-          { label: 'Your Score',      value: myEntry?.totalScore ?? 0,                  icon: Zap,       color: 'text-purple-400' },
-          { label: 'Next Refresh',    value: `${countdown}s`,                           icon: Clock,     color: 'text-green-400'  },
+          { label: 'Total Coders',  value: entries.length,                  icon: Users,  color: 'text-blue-400'   },
+          { label: 'Your Rank',     value: myEntry ? `#${myEntry.rank}` : '—', icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Your Score',    value: myEntry?.totalScore ?? 0,        icon: Zap,    color: 'text-purple-400' },
+          { label: 'Next Refresh',  value: `${countdown}s`,                 icon: Clock,  color: 'text-green-400'  },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="lb-card flex items-center gap-3">
             <div className={`w-8 h-8 rounded-xl bg-gray-800 border border-gray-800 flex items-center justify-center ${color} flex-shrink-0`}>
@@ -552,7 +696,6 @@ function Leaderboard({ user }: { user: User }) {
             <div className="text-center">
               <p className="text-green-400 font-bold text-base">{myEntry.easySolved}</p>
               <p className="text-gray-600 text-[10px]">Easy</p>
-              <p className="text-gray-700 text-[9px]">/{QUESTION_BANK["Arrays"].easy + 41} total</p>
             </div>
             <div className="text-center">
               <p className="text-yellow-400 font-bold text-base">{myEntry.mediumSolved}</p>
@@ -590,16 +733,14 @@ function Leaderboard({ user }: { user: User }) {
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
           {(['all', 'college', 'weekly'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`tab-btn ${filter === f ? 'active' : ''}`}>
+            <button key={f} onClick={() => setFilter(f)} className={`tab-btn ${filter === f ? 'active' : ''}`}>
               {f === 'all' ? '🌐 All Time' : f === 'college' ? '🏫 College' : '📅 This Week'}
             </button>
           ))}
         </div>
         <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
           {(['all', 'easy', 'medium', 'hard'] as const).map(d => (
-            <button key={d} onClick={() => setDiffFilter(d)}
-              className={`tab-btn ${diffFilter === d ? 'active' : ''}`}>
+            <button key={d} onClick={() => setDiffFilter(d)} className={`tab-btn ${diffFilter === d ? 'active' : ''}`}>
               {d === 'all' ? 'All Diff' : d.charAt(0).toUpperCase() + d.slice(1)}
             </button>
           ))}
@@ -608,18 +749,11 @@ function Leaderboard({ user }: { user: User }) {
 
       {/* Topic filter chips */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-        <button
-          className={`topic-chip flex-shrink-0 ${topicFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setTopicFilter('all')}
-        >
+        <button className={`topic-chip flex-shrink-0 ${topicFilter === 'all' ? 'active' : ''}`} onClick={() => setTopicFilter('all')}>
           All Topics
         </button>
         {TOPIC_ORDER.map(t => (
-          <button
-            key={t}
-            className={`topic-chip flex-shrink-0 ${topicFilter === t ? 'active' : ''}`}
-            onClick={() => setTopicFilter(t)}
-          >
+          <button key={t} className={`topic-chip flex-shrink-0 ${topicFilter === t ? 'active' : ''}`} onClick={() => setTopicFilter(t)}>
             {t}
           </button>
         ))}
@@ -642,14 +776,11 @@ function Leaderboard({ user }: { user: User }) {
 
       {/* Last updated */}
       {lastUpdated && (
-        <p className="text-gray-700 text-[11px] mb-3 text-right">
-          Updated {lastUpdated.toLocaleTimeString()}
-        </p>
+        <p className="text-gray-700 text-[11px] mb-3 text-right">Updated {lastUpdated.toLocaleTimeString()}</p>
       )}
 
-      {/* Table */}
+      {/* Rankings Table */}
       <div className="lb-card p-0 overflow-hidden">
-        {/* Header row */}
         <div className="grid grid-cols-12 gap-2 px-5 py-3 border-b border-gray-800/60 text-gray-600 text-[10px] font-semibold uppercase tracking-wider">
           <div className="col-span-1 text-center">Rank</div>
           <div className="col-span-4">Coder</div>
@@ -668,9 +799,7 @@ function Leaderboard({ user }: { user: User }) {
         ) : filteredEntries.length === 0 ? (
           <div className="text-center py-20 text-gray-600">
             <Trophy size={36} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">
-              {search ? 'No coders match your search.' : 'No data yet. Start solving questions!'}
-            </p>
+            <p className="text-sm">{search ? 'No coders match your search.' : 'No data yet. Start solving questions!'}</p>
           </div>
         ) : (
           <div>
@@ -680,10 +809,7 @@ function Leaderboard({ user }: { user: User }) {
               const isTop      = entry.rank <= 3;
               const topClass   = entry.rank === 1 ? 'top1' : entry.rank === 2 ? 'top2' : entry.rank === 3 ? 'top3' : '';
               const scoreWidth = `${Math.round((entry.totalScore / maxScore) * 100)}%`;
-              const barColor   = entry.rank === 1 ? '#facc15'
-                               : entry.rank === 2 ? '#94a3b8'
-                               : entry.rank === 3 ? '#b45309'
-                               : isMe ? '#3b82f6' : '#374151';
+              const barColor   = entry.rank === 1 ? '#facc15' : entry.rank === 2 ? '#94a3b8' : entry.rank === 3 ? '#b45309' : isMe ? '#3b82f6' : '#374151';
 
               return (
                 <React.Fragment key={entry.userId}>
@@ -693,18 +819,11 @@ function Leaderboard({ user }: { user: User }) {
                     onClick={() => setExpandedRow(isExpanded ? null : entry.userId)}
                     title="Click to see topic breakdown"
                   >
-                    {/* Rank */}
-                    <div className="col-span-1 flex justify-center">
-                      {rankIcon(entry.rank)}
-                    </div>
-
-                    {/* Coder */}
+                    <div className="col-span-1 flex justify-center">{rankIcon(entry.rank)}</div>
                     <div className="col-span-4 flex items-center gap-2.5 min-w-0">
                       <div className="relative flex-shrink-0">
                         <Avatar name={entry.name} picture={entry.picture} size="sm" />
-                        {isMe && (
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border border-[#12151f]" />
-                        )}
+                        {isMe && <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border border-[#12151f]" />}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -714,30 +833,18 @@ function Leaderboard({ user }: { user: User }) {
                           </span>
                           {entry.badge && <BadgePill badge={entry.badge} />}
                         </div>
-                        {entry.college && (
-                          <p className="text-gray-600 text-[10px] truncate">{entry.college}</p>
-                        )}
+                        {entry.college && <p className="text-gray-600 text-[10px] truncate">{entry.college}</p>}
                       </div>
                     </div>
-
-                    {/* Score + bar */}
                     <div className="col-span-2 hidden sm:block text-right">
-                      <p className={`text-sm font-bold ${isTop ? 'text-white' : 'text-gray-300'}`}>
-                        {entry.totalScore}
-                      </p>
+                      <p className={`text-sm font-bold ${isTop ? 'text-white' : 'text-gray-300'}`}>{entry.totalScore}</p>
                       <div className="h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
-                        <div
-                          className="h-full rounded-full score-bar-fill"
-                          style={{ width: scoreWidth, background: barColor }}
-                        />
+                        <div className="h-full rounded-full score-bar-fill" style={{ width: scoreWidth, background: barColor }} />
                       </div>
                     </div>
-
-                    {/* Solved breakdown */}
                     <div className="col-span-2 hidden md:block text-right">
                       <p className="text-[11px] font-semibold text-gray-300">
-                        {entry.totalSolved}
-                        <span className="text-gray-600 font-normal">/{TOTAL_QUESTIONS}</span>
+                        {entry.totalSolved}<span className="text-gray-600 font-normal">/{TOTAL_QUESTIONS}</span>
                       </p>
                       <p className="text-[10px] text-gray-600">
                         <span className="text-green-500">{entry.easySolved}E</span>{' '}
@@ -745,22 +852,14 @@ function Leaderboard({ user }: { user: User }) {
                         <span className="text-red-500">{entry.hardSolved}H</span>
                       </p>
                     </div>
-
-                    {/* Streak */}
                     <div className="col-span-2 hidden lg:flex items-center justify-end gap-1">
                       <Flame size={11} className={entry.streak > 0 ? 'text-orange-400' : 'text-gray-700'} />
-                      <span className={`text-xs font-semibold ${entry.streak > 0 ? 'text-orange-400' : 'text-gray-700'}`}>
-                        {entry.streak}d
-                      </span>
+                      <span className={`text-xs font-semibold ${entry.streak > 0 ? 'text-orange-400' : 'text-gray-700'}`}>{entry.streak}d</span>
                     </div>
-
-                    {/* Rank change */}
                     <div className="col-span-1 flex justify-end">
                       <RankChange curr={entry.rank} prev={entry.prevRank} />
                     </div>
                   </div>
-
-                  {/* Topic progress expand */}
                   {isExpanded && <TopicProgressRow entry={entry} />}
                 </React.Fragment>
               );
@@ -782,14 +881,9 @@ function Leaderboard({ user }: { user: User }) {
         </p>
       </div>
 
-      {/* Question bank summary */}
-      <div className="mt-3 bg-[#0f1117] border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
-        <BookOpen size={13} className="text-purple-400 flex-shrink-0" />
-        <p className="text-gray-600 text-[11px]">
-          <span className="text-gray-400">{TOTAL_QUESTIONS} questions</span> across {TOPIC_ORDER.length} topics
-          &nbsp;·&nbsp;Click any row to see per-topic progress
-        </p>
-      </div>
+      {/* ─── QUESTION BANK ─── */}
+      <hr className="section-divider" />
+      <QuestionBankSection />
     </div>
   );
 }
