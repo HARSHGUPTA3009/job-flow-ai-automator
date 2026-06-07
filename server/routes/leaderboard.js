@@ -1,190 +1,220 @@
-// server/routes/leaderboard.js
-// Mount as: app.use('/api/leaderboard', leaderboardRoutes)
-
 const express = require('express');
+const Progress = require('../models/Progress');
+
 const router = express.Router();
-const mongoose = require('mongoose');
 
-// Re-use existing models (they're already registered in server.js)
-const CodingEntry     = mongoose.models.CodingEntry;
-const PlatformProfile = mongoose.models.PlatformProfile;
+// ─── Helper: today as YYYY-MM-DD ─────────────────────────────────────────────
+const toDateStr = (d = new Date()) => d.toISOString().slice(0, 10);
 
-// ─── Scoring weights (must match frontend SCORE_POLICY) ──────────────────────
-const SCORE = { easy: 1, medium: 3, hard: 7, streakBonus: 2, starBonus: 1 };
+// ─── Helper: compute streak for a userId ─────────────────────────────────────
+async function computeStreak(userId) {
+  // Get all distinct dates the user solved something, sorted desc
+  const records = await Progress.find({ userId, solved: true, solvedAt: { $ne: null } })
+    .select('solvedAt')
+    .lean();
 
-// ─── Helper: compute streak from sorted date strings ─────────────────────────
-function computeStreak(dates) {
-  const set = new Set(dates);
-  let streak = 0;
-  
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  
-  const todayStr = today.toISOString().split('T')[0];
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const days = [...new Set(records.map(r => toDateStr(r.solvedAt)))].sort().reverse();
+  if (!days.length) return 0;
 
-  // Start checking from today. If not active today, give a 1-day grace period (yesterday).
-  let cur = null;
-  if (set.has(todayStr)) {
-    cur = today;
-  } else if (set.has(yesterdayStr)) {
-    cur = yesterday;
-  }
-  
-  if (!cur) return 0; // No active streak
+  const today = toDateStr();
+  const yesterday = toDateStr(new Date(Date.now() - 86_400_000));
 
-  while (set.has(cur.toISOString().split('T')[0])) {
-    streak++;
-    cur.setDate(cur.getDate() - 1);
+  // Streak must include today or yesterday to be "active"
+  if (days[0] !== today && days[0] !== yesterday) return 0;
+
+  let streak = 1;
+  for (let i = 1; i < days.length; i++) {
+    const prev = new Date(days[i - 1]);
+    const curr = new Date(days[i]);
+    const diff = Math.round((prev - curr) / 86_400_000);
+    if (diff === 1) streak++;
+    else break;
   }
   return streak;
 }
 
+// ─── POST /api/progress/toggle ───────────────────────────────────────────────
+// Toggle solved state for one question.
+// Body: { questionId, questionName, topic, diff, lists, solved }
+// Auth: req.user must be set by your auth middleware (id, email, name, picture, college)
+router.post('/toggle', async (req, res) => {
+  try {
+    const { questionId, questionName, topic, diff, lists = [], solved } = req.body;
+    const { id: userId, email, name = '', picture = '', college = '' } = req.user;
+
+    if (!questionId || !topic || !diff) {
+      return res.status(400).json({ error: 'questionId, topic, diff are required' });
+    }
+
+    const solvedAt = solved ? new Date() : null;
+
+    const doc = await Progress.findOneAndUpdate(
+      { userId, questionId },
+      {
+        $set: {
+          userId, email, name, picture, college,
+          questionId, questionName, topic, diff, lists,
+          solved, solvedAt,
+          lastActivityDate: solved ? toDateStr() : null,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, doc });
+  } catch (err) {
+    console.error('progress/toggle error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── POST /api/progress/star ─────────────────────────────────────────────────
+// Toggle starred state for one question.
+router.post('/star', async (req, res) => {
+  try {
+    const { questionId, questionName, topic, diff, lists = [], starred } = req.body;
+    const { id: userId, email, name = '', picture = '', college = '' } = req.user;
+
+    const doc = await Progress.findOneAndUpdate(
+      { userId, questionId },
+      {
+        $set: {
+          userId, email, name, picture, college,
+          questionId, questionName, topic, diff, lists,
+          starred,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, doc });
+  } catch (err) {
+    console.error('progress/star error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── GET /api/progress/me ─────────────────────────────────────────────────────
+// Returns all progress records for the logged-in user.
+router.get('/me', async (req, res) => {
+  try {
+    const { id: userId } = req.user;
+    const records = await Progress.find({ userId }).lean();
+    res.json(records);
+  } catch (err) {
+    console.error('progress/me error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ─── GET /api/leaderboard ─────────────────────────────────────────────────────
-// Query params:
-//   filter = 'all' | 'weekly'   (college filter needs Profile model - extend if needed)
-//   diff   = 'all' | 'easy' | 'medium' | 'hard'
-//   topic  = 'all' | specific topic string
-router.get('/', async (req, res) => {
+// Aggregates all users' progress into ranked leaderboard entries.
+// Query params: filter (all|college|weekly), diff, topic
+router.get('/leaderboard', async (req, res) => {
   try {
     const { filter = 'all', diff, topic } = req.query;
 
-    // Build Match Stage based on incoming query params
-    const matchStage = {};
+    const matchStage = { solved: true };
+    if (diff && diff !== 'all')   matchStage.diff  = diff;
+    if (topic && topic !== 'all') matchStage.topic = topic;
 
-    // 1. Time Filter
+    // For weekly filter: only last 7 days
     if (filter === 'weekly') {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      matchStage.solvedDate = { $gte: weekAgo.toISOString().split('T')[0] };
+      matchStage.solvedAt = { $gte: new Date(Date.now() - 7 * 86_400_000) };
     }
 
-    // 2. Difficulty Filter
-    if (diff && diff !== 'all') {
-      matchStage.difficulty = diff;
-    }
-
-    // 3. Topic Filter
-    if (topic && topic !== 'all') {
-      matchStage.topic = topic;
-    }
-
-    // Aggregate all entries grouped by userId
     const pipeline = [
       { $match: matchStage },
       {
         $group: {
-          _id:           '$userId',
-          easySolved:    { $sum: { $cond: [{ $eq: ['$difficulty', 'easy']   }, 1, 0] } },
-          mediumSolved:  { $sum: { $cond: [{ $eq: ['$difficulty', 'medium'] }, 1, 0] } },
-          hardSolved:    { $sum: { $cond: [{ $eq: ['$difficulty', 'hard']   }, 1, 0] } },
-          starredCount:  { $sum: { $cond: ['$isStarred', 1, 0] } },
-          totalSolved:   { $sum: 1 },
-          lastActive:    { $max: '$solvedDate' },
-          allDates:      { $addToSet: '$solvedDate' },
-          // Capture topic and diff for the expandable rows on frontend
-          allProblems:   { 
-            $push: { 
-              difficulty: '$difficulty', 
-              topic: '$topic' 
-            } 
-          },
-          recent:        {
+          _id: '$userId',
+          email:        { $first: '$email'   },
+          name:         { $first: '$name'    },
+          picture:      { $first: '$picture' },
+          college:      { $first: '$college' },
+          easySolved:   { $sum: { $cond: [{ $eq: ['$diff', 'easy']   }, 1, 0] } },
+          mediumSolved: { $sum: { $cond: [{ $eq: ['$diff', 'medium'] }, 1, 0] } },
+          hardSolved:   { $sum: { $cond: [{ $eq: ['$diff', 'hard']   }, 1, 0] } },
+          starredCount: { $sum: { $cond: ['$starred', 1, 0] } },
+          totalSolved:  { $sum: 1 },
+          lastActive:   { $max: '$solvedAt' },
+          // Topic breakdown
+          topicProgress: {
             $push: {
-              platform:     '$platform',
-              questionName: '$questionName',
-              solvedDate:   '$solvedDate',
-            }
+              topic: '$topic',
+              diff:  '$diff',
+            },
           },
-        }
+        },
       },
+      {
+        $addFields: {
+          totalScore: {
+            $add: [
+              { $multiply: ['$easySolved',   1] },
+              { $multiply: ['$mediumSolved', 3] },
+              { $multiply: ['$hardSolved',   7] },
+              { $multiply: ['$starredCount', 1] },
+              // streak bonus added below after separate query
+            ],
+          },
+        },
+      },
+      { $sort: { totalScore: -1, totalSolved: -1, lastActive: -1 } },
     ];
 
-    const grouped = await CodingEntry.aggregate(pipeline);
+    const results = await Progress.aggregate(pipeline);
 
-    // Fetch all platform profiles for name lookup (userId → username)
-    // If you have a User/Profile model, replace this with a proper lookup
-    const profiles = await PlatformProfile.find({
-      userId: { $in: grouped.map(g => g._id) }
-    });
+    // Build per-user topic progress map + add streak
+    const entries = await Promise.all(
+      results.map(async (u, idx) => {
+        const streak = await computeStreak(u._id);
+        const streakBonus = Math.min(streak, 30) * 2;
 
-    // Build a userId → display name map from platform usernames
-    // (Falls back to userId if no profile exists)
-    const nameMap = {};
-    for (const p of profiles) {
-      if (!nameMap[p.userId]) nameMap[p.userId] = p.username;
-    }
-
-    // If you have a User model, do a proper name lookup here:
-    // const users = await User.find({ _id: { $in: grouped.map(g => g._id) } });
-    // for (const u of users) nameMap[u._id.toString()] = u.name || u.email;
-
-    // Compute scores, topic breakdowns, and build entries
-    const entries = grouped.map(g => {
-      const streak = computeStreak(g.allDates);
-      const score =
-        g.easySolved   * SCORE.easy   +
-        g.mediumSolved * SCORE.medium +
-        g.hardSolved   * SCORE.hard   +
-        Math.min(streak, 30) * SCORE.streakBonus +
-        g.starredCount * SCORE.starBonus;
-
-      // Group topics for the expandable row UI
-      const topicProgress = {};
-      g.allProblems.forEach(prob => {
-        if (!prob.topic) return;
-        if (!topicProgress[prob.topic]) {
-          topicProgress[prob.topic] = { easy: 0, medium: 0, hard: 0 };
+        // Build topicProgress: { [topic]: { easy, medium, hard } }
+        const topicProgress = {};
+        for (const { topic: t, diff: d } of u.topicProgress) {
+          if (!topicProgress[t]) topicProgress[t] = { easy: 0, medium: 0, hard: 0 };
+          topicProgress[t][d] = (topicProgress[t][d] || 0) + 1;
         }
-        if (prob.difficulty === 'easy') topicProgress[prob.topic].easy++;
-        else if (prob.difficulty === 'medium') topicProgress[prob.topic].medium++;
-        else if (prob.difficulty === 'hard') topicProgress[prob.topic].hard++;
-      });
 
-      return {
-        userId:       g._id,
-        name:         nameMap[g._id] || g._id,
-        email:        '',                          // fill from User model if available
-        totalScore:   score,
-        totalSolved:  g.totalSolved,
-        easySolved:   g.easySolved,
-        mediumSolved: g.mediumSolved,
-        hardSolved:   g.hardSolved,
-        streak,
-        starredCount: g.starredCount,
-        lastActive:   g.lastActive,
-        topicProgress, // Handed off to frontend for the progress bars
-        recentActivity: g.recent
-          .sort((a, b) => b.solvedDate.localeCompare(a.solvedDate))
-          .slice(0, 3),
-      };
-    });
+        return {
+          userId:       u._id,
+          email:        u.email,
+          name:         u.name || u.email.split('@')[0],
+          picture:      u.picture,
+          college:      u.college,
+          rank:         idx + 1,
+          totalScore:   u.totalScore + streakBonus,
+          totalSolved:  u.totalSolved,
+          easySolved:   u.easySolved,
+          mediumSolved: u.mediumSolved,
+          hardSolved:   u.hardSolved,
+          starredCount: u.starredCount,
+          streak,
+          lastActive:   u.lastActive,
+          topicProgress,
+        };
+      })
+    );
 
-    // Sort by score descending
-    entries.sort((a, b) => b.totalScore - a.totalScore);
+    // Re-sort after adding streak bonus (scores may have changed)
+    entries.sort((a, b) => b.totalScore - a.totalScore || b.totalSolved - a.totalSolved);
+    entries.forEach((e, i) => { e.rank = i + 1; });
 
-    // Assign ranks & badges
-    const maxStreak = Math.max(...entries.map(e => e.streak), 0);
-    const result = entries.map((e, i) => {
-      let badge;
-      if      (i === 0)               badge = 'gold';
-      else if (i === 1)               badge = 'silver';
-      else if (i === 2)               badge = 'bronze';
-      else if (e.streak === maxStreak && e.streak > 0) badge = 'streak';
+    // Assign badges
+    if (entries[0]) entries[0].badge = 'gold';
+    if (entries[1]) entries[1].badge = 'silver';
+    if (entries[2]) entries[2].badge = 'bronze';
 
-      return { ...e, rank: i + 1, badge };
-    });
+    const maxStreak = Math.max(...entries.map(e => e.streak));
+    const streakKing = entries.find(e => e.streak === maxStreak && maxStreak > 0);
+    if (streakKing && !streakKing.badge) streakKing.badge = 'streak';
 
-    // Mark "rising star" — biggest rank improver since last snapshot
-    // (Simple approach: if any user has risen 5+ positions vs their score rank, tag them)
-    // For a real implementation, store snapshots in a LeaderboardSnapshot collection.
-
-    res.json(result);
+    res.json(entries);
   } catch (err) {
-    console.error('Leaderboard error:', err);
-    res.status(500).json({ error: 'Failed to compute leaderboard' });
+    console.error('leaderboard error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
-
 module.exports = router;
