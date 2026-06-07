@@ -909,52 +909,12 @@ function Leaderboard({ user }: { user: User }) {
           {/* Score badge */}
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-1.5 text-center">
             <p className="text-purple-300 font-bold text-base">{localScore}</p>
-            <p className="text-gray-600 text-[10px]">pts (local)</p>
+            <p className="text-gray-600 text-[10px]">Points</p>
           </div>
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
-        <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
-          {(['all', 'college', 'weekly'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} className={`tab-btn ${filter === f ? 'active' : ''}`}>
-              {f === 'all' ? '🌐 All Time' : f === 'college' ? '🏫 College' : '📅 This Week'}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
-          {(['all', 'easy', 'medium', 'hard'] as const).map(d => (
-            <button key={d} onClick={() => setDiffFilter(d)} className={`tab-btn ${diffFilter === d ? 'active' : ''}`}>
-              {d === 'all' ? 'All Diff' : d.charAt(0).toUpperCase() + d.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Topic filter chips */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-        <button className={`topic-chip flex-shrink-0 ${topicFilter === 'all' ? 'active' : ''}`} onClick={() => setTopicFilter('all')}>
-          All Topics
-        </button>
-        {TOPIC_ORDER.map(t => (
-          <button key={t} className={`topic-chip flex-shrink-0 ${topicFilter === t ? 'active' : ''}`} onClick={() => setTopicFilter(t)}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-4 w-full sm:w-72">
-        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-        <input
-          type="text"
-          placeholder="Search coders…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-box w-full"
-        />
-      </div>
+    
 
       {/* Podium */}
       {!loading && top3.length >= 3 && <Podium top3={top3} myUserId={user.id} />}
@@ -1056,18 +1016,6 @@ function Leaderboard({ user }: { user: User }) {
         )}
       </div>
 
-      {/* Formula footer */}
-      <div className="mt-5 bg-[#0f1117] border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
-        <Target size={13} className="text-blue-400 flex-shrink-0" />
-        <p className="text-gray-600 text-[11px]">
-          <span className="text-gray-400">Score = </span>
-          Easy×{SCORE_POLICY.easy} + Medium×{SCORE_POLICY.medium} + Hard×{SCORE_POLICY.hard} + Streak×{SCORE_POLICY.streakBonus} + Stars×{SCORE_POLICY.starBonus}
-          &nbsp;·&nbsp;
-          <button onClick={() => setShowPolicy(true)} className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition">
-            Full scoring policy →
-          </button>
-        </p>
-      </div>
 
       {/* ─── QUESTION BANK ─── */}
       <hr className="section-divider" />
