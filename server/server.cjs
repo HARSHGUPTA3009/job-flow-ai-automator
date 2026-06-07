@@ -112,7 +112,6 @@ app.post('/ai/ats-upload', rateLimiter, upload.single('file'), async (req, res) 
       const raw = await extractPdfText(req.file.buffer);
       resumeText = cleanResumeText(raw);
     } else {
-      // .js or plain text
       resumeText = req.file.buffer.toString('utf-8');
     }
 
@@ -120,9 +119,12 @@ app.post('/ai/ats-upload', rateLimiter, upload.single('file'), async (req, res) 
       return res.status(400).json({ error: 'Resume extraction failed. Try a clearer file.' });
     }
 
-    // Cache check
+    const jobDescription = req.body?.jobDescription || null;
+
+    // Cache check — JD-aware
     const crypto = require('crypto');
-    const hash = crypto.createHash('sha256').update(resumeText).digest('hex');
+    const hashInput = jobDescription ? resumeText + jobDescription : resumeText;
+    const hash = crypto.createHash('sha256').update(hashInput).digest('hex');
     const cacheKey = `ats:${hash}`;
     const cached = await redis.get(cacheKey);
     if (cached) {
@@ -131,7 +133,6 @@ app.post('/ai/ats-upload', rateLimiter, upload.single('file'), async (req, res) 
     }
     console.log('❌ ATS Cache MISS');
 
-    // Get key from sliding-window manager
     let apiKey;
     try {
       apiKey = await getKey();
@@ -139,12 +140,32 @@ app.post('/ai/ats-upload', rateLimiter, upload.single('file'), async (req, res) 
       return res.status(429).json({ error: 'Rate limit reached. Please try again in a minute.' });
     }
 
-    const payload = {
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        {
-          role: 'system',
-          content: `
+    const systemPrompt = jobDescription ? `
+You are a senior technical recruiter and ATS system evaluator at a top-tier tech company.
+
+A candidate is applying to a SPECIFIC role. You have both the job description and their resume.
+
+SCORING CRITERIA (100 points total):
+- Keyword match with JD (25pts): required/preferred skills present in resume
+- Quantified impact and metrics (20pts): numbers, percentages, scale
+- Action verb strength (15pts): built, architected, optimized vs "helped", "assisted"
+- Section structure (15pts): experience, education, skills, projects present
+- Clarity and conciseness (15pts): no fluff, no walls of text
+- ATS formatting compliance (10pts): no tables, no columns, no images
+
+In suggestions, PRIORITIZE gaps between JD requirements and resume content.
+
+STRICT OUTPUT RULES:
+- Return ONLY valid JSON. No markdown. No explanation. No preamble.
+- JSON must match this exact schema:
+
+{
+  "score": <integer 0-100>,
+  "summary": "<2-3 sentence honest assessment mentioning JD fit, strongest and weakest areas>",
+  "suggestions": ["<specific actionable fix referencing JD gaps>", ...],
+  "detected_skills": ["<skill present in both JD and resume>", ...]
+}
+    `.trim() : `
 You are a senior technical recruiter and ATS system evaluator at a top-tier tech company.
 
 Analyze the provided resume and return a structured ATS evaluation.
@@ -167,19 +188,23 @@ STRICT OUTPUT RULES:
   "suggestions": ["<specific actionable fix>", ...],
   "detected_skills": ["<skill>", ...]
 }
-          `.trim()
-        },
-        {
-          role: 'user',
-          content: `Evaluate this resume:\n\n${resumeText.slice(0, 4000)}`
-        }
+    `.trim();
+
+    const userContent = jobDescription
+      ? `Job Description:\n${jobDescription.slice(0, 1500)}\n\nResume:\n${resumeText.slice(0, 3000)}`
+      : `Evaluate this resume:\n\n${resumeText.slice(0, 4000)}`;
+
+    const payload = {
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent }
       ],
       temperature: 0,
       max_tokens: 600,
       response_format: { type: 'json_object' }
     };
 
-    // FIXED: axios.post(url, data, config) — single config object
     const aiResponse = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       payload,

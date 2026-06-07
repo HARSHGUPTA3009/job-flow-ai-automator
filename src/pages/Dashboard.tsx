@@ -81,45 +81,48 @@ const Dashboard = () => {
     return "stroke-red-400";
   };
 
-  const handleATSCheck = async () => {
-    if (!resumeFile) {
-      alert("Please upload a resume first");
-      return;
+const handleATSCheck = async () => {
+  if (!resumeFile) {
+    alert("Please upload a resume first");
+    return;
+  }
+  setLoadingATS(true);
+  try {
+    const formData = new FormData();
+    formData.append("file", resumeFile);
+    if (jobDescription.trim()) {
+      formData.append("jobDescription", jobDescription.trim());
     }
-    setLoadingATS(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", resumeFile);
 
-      const response = await fetch(`${BACKEND_URL}/ai/ats-upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
+    const response = await fetch(`${BACKEND_URL}/ai/ats-upload`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `Backend error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (
-        typeof data.score !== "number" ||
-        !Array.isArray(data.suggestions) ||
-        !Array.isArray(data.detected_skills)
-      ) {
-        throw new Error("Invalid ATS response format");
-      }
-
-      setATSResult(data);
-    } catch (error) {
-      console.error("ATS check failed:", error);
-      alert("Something went wrong during ATS check.");
-    } finally {
-      setLoadingATS(false);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `Backend error: ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+
+    if (
+      typeof data.score !== "number" ||
+      !Array.isArray(data.suggestions) ||
+      !Array.isArray(data.detected_skills)
+    ) {
+      throw new Error("Invalid ATS response format");
+    }
+
+    setATSResult(data);
+  } catch (error) {
+    console.error("ATS check failed:", error);
+    alert("Something went wrong during ATS check.");
+  } finally {
+    setLoadingATS(false);
+  }
+};
 
   const handleColdEmailSetup = async () => {
     if (!googleSheetUrl || !userName.trim()) {
@@ -175,6 +178,7 @@ const Dashboard = () => {
       setLoadingEmails(false);
     }
   };
+  const [jobDescription, setJobDescription] = useState("");
 
   // Circular score ring
   const ScoreRing = ({ score }: { score: number }) => {
@@ -267,6 +271,18 @@ const Dashboard = () => {
                   />
                 </label>
               </div>
+                <div>
+                  <Label className="text-gray-300 text-sm mb-2 block">
+                    Job Description <span className="text-gray-500">(optional — improves scoring accuracy)</span>
+                  </Label>
+                  <textarea
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="Paste the job description here to get a role-specific ATS score..."
+                    rows={4}
+                    className="w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-400 resize-none"
+                  />
+                </div>
 
               <Button
                 onClick={handleATSCheck}
