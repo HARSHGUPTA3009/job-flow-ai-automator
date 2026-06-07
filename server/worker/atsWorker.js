@@ -4,7 +4,9 @@ const IORedis = require('ioredis');
 const axios = require('axios');
 const { getKey } = require('../config/groqPool');
 
-const connection = new IORedis(process.env.REDIS_URL);
+const connection = new IORedis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: null,
+})
 
 new Worker('ats', async (job) => {
   const { resumeText } = job.data;

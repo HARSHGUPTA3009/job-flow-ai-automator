@@ -2,8 +2,9 @@
 const { RateLimiterRedis } = require('rate-limiter-flexible');
 const Redis = require('ioredis');
 
-const redis = new Redis(process.env.REDIS_URL);
-
+const redis = new Redis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: null,
+});
 const limiter = new RateLimiterRedis({
   storeClient: redis,
   points: 100,
