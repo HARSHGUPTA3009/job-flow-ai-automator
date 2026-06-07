@@ -9,7 +9,7 @@ const redis = require('./config/redis');
 const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
 const { getKey } = require('./config/groqPool');
-const progressRoutes = require('./routes/progress');
+const progress = require('../models/Progress.js');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const app = express();
@@ -72,7 +72,7 @@ const upload = multer({
 // ROUTES
 // ============================================================================
 
-app.use('/api/progress', progressRoutes);
+app.use('/api/progress', progress);
 app.use('/api/leaderboard',require('./routes/leaderboard'));
 
 const axios = require('axios');

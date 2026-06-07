@@ -1,7 +1,4 @@
-import mongoose from 'mongoose';
-
-// ─── Progress Schema ─────────────────────────────────────────────────────────
-// One document per (user, question) pair. Upserted on toggle.
+const mongoose = require('mongoose');
 
 const progressSchema = new mongoose.Schema(
   {
@@ -27,7 +24,7 @@ const progressSchema = new mongoose.Schema(
       default: '',
     },
     questionId: {
-      type: String,   // e.g. "arrays-001" or q.id from questions.js
+      type: String,
       required: true,
     },
     questionName: {
@@ -35,7 +32,7 @@ const progressSchema = new mongoose.Schema(
       default: '',
     },
     topic: {
-      type: String,   // e.g. "Arrays"
+      type: String,
       required: true,
     },
     diff: {
@@ -44,7 +41,7 @@ const progressSchema = new mongoose.Schema(
       required: true,
     },
     lists: {
-      type: [String], // e.g. ["nc", "lc75"]
+      type: [String],
       default: [],
     },
     starred: {
@@ -59,24 +56,24 @@ const progressSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    // streak tracking — updated server-side
     lastActivityDate: {
-      type: String, // YYYY-MM-DD
+      type: String,
       default: null,
     },
   },
   {
-    timestamps: true, // createdAt, updatedAt
+    timestamps: true,
   }
 );
 
-// Compound unique index — one record per user per question
-progressSchema.index({ userId: true, questionId: true }, { unique: true });
+progressSchema.index(
+  { userId: true, questionId: true },
+  { unique: true }
+);
 
-// For leaderboard aggregation queries
 progressSchema.index({ userId: true, solved: true });
 progressSchema.index({ userId: true, topic: true, solved: true });
 
-const Progress = mongoose.models.Progress || mongoose.model('Progress', progressSchema);
-
-export default Progress;
+module.exports =
+  mongoose.models.Progress ||
+  mongoose.model('Progress', progressSchema);

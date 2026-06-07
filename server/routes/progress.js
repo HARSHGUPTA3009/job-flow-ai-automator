@@ -1,5 +1,5 @@
 const express = require('express');
-import Progress from '../models/Progress.js';
+const Progress = require('../models/Progress');
 
 const router = express.Router();
 
