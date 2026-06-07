@@ -10,8 +10,6 @@ const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
 const { getKey } = require('./config/groqPool');
 const progressRouter = './routes/progress.js';
-// Import routes
-const chatbotRoutes = require('./routes/chatbot');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const app = express();
@@ -74,8 +72,7 @@ const upload = multer({
 // ROUTES
 // ============================================================================
 
-app.use('/api/progress', './routes/progress'); 
-app.use('/api/coding',     require('./routes/coding'));
+app.use('/api/progress', progressRoutes);
 app.use('/api/leaderboard',require('./routes/leaderboard'));
 
 const axios = require('axios');
@@ -371,13 +368,11 @@ const CompanyDrive           = mongoose.model('CompanyDrive',          CompanyDr
 app.use('/gmail',        require('./routes/gmail'));
 app.use('/auth',         require('./routes/auth'));
 app.use('/api',          require('./routes/api'));
-app.use('/api/chatbot',  chatbotRoutes);
 
 const jobRoutes     = require('./routes/jobs');
 const companyRoutes = require('./routes/companies');
 const { initCron }  = require('./cron/jobScraper.cron');
-app.use('/api/jobs',       jobRoutes);
-app.use('/api/companies',  companyRoutes);
+
 
 // ============================================================================
 // PLACEMENT TRACKER — PROFILE
