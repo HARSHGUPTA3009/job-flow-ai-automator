@@ -1,12 +1,12 @@
 const { Worker, QueueEvents } = require("bullmq");
 const IORedis = require("ioredis");
 
-const connection = new IORedis({
+const connection = new IORedis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
 // 🔥 Increase workers
-const WORKER_COUNT = 20;
+const WORKER_COUNT = 1;
 
 let stats = {
   processed: 0,
@@ -29,7 +29,7 @@ for (let i = 0; i < WORKER_COUNT; i++) {
       // simulate batching (group multiple jobs)
       await processBatch([job.data]);
     },
-    { connection, concurrency: 10 } // 🔥 parallel per worker
+    { connection, concurrency: 5 } // 🔥 parallel per worker
   ).on("failed", () => {
     stats.failed++;
   });
