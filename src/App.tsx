@@ -11,8 +11,7 @@ import SignIn from "@/pages/SignIn";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/NotFound";
 import Placements from "@/pages/Placements";
-import Jobs from "@/pages/Jobs";
-import Coding from "@/pages/Coding.tsx";
+
 import Leaderboard from "@/pages/Leaderboard";
 
 import { Navigation } from "@/components/Navigation";
@@ -88,8 +87,6 @@ const App = () => {
             <Route path="/signin"      element={user ? <Navigate to="/dashboard" replace /> : <SignIn />} />
             <Route path="/dashboard"   element={guard(<Dashboard   user={user!} />)} />
             <Route path="/placements"  element={guard(<Placements  user={user!} />)} />
-            <Route path="/jobs"        element={guard(<Jobs        user={user!} />)} />
-            <Route path="/coding"      element={guard(<Coding      user={user!} />)} />
             <Route path="/leaderboard" element={guard(<Leaderboard user={user!} />)} />
             <Route path="*"            element={<NotFound />} />
           </Routes>
