@@ -9,7 +9,7 @@ const redis = require('./config/redis');
 const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
 const { getKey } = require('./config/groqPool');
-const progress = require('../models/Progress.js');
+const progress = require('./routes/progress.js');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const app = express();
@@ -180,7 +180,7 @@ Output format EXACTLY:
     ],
     temperature: 0,
     max_tokens: 400,
-    response_format: { type: "json_object" } // 🔥 IMPORTANT
+    response_format: { type: "json_object" } 
   },
   {
     headers: {
