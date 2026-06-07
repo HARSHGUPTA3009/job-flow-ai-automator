@@ -655,7 +655,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'AutoJob Flow API Server is running!',
     version: '2.0.0',
-    endpoints: { auth: '/auth', gmail: '/gmail', api: '/api', chatbot: '/api/chatbot', placement: '/api/placement' }
+    endpoints: { auth: '/auth', api: '/api', placement: '/api/placement' }
   });
 });
 
@@ -666,7 +666,7 @@ app.get('/health', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
-    services: { chatbot: 'enabled', gmail: 'enabled', auth: 'enabled', api: 'enabled', placement: 'enabled' },
+    services: {  auth: 'enabled', api: 'enabled', placement: 'enabled' },
     database: { status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', name: mongoose.connection.name || 'N/A' }
   });
 });
