@@ -9,6 +9,7 @@ const redis = require('./config/redis');
 const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
 const { getKey } = require('./config/groqPool');
+const progressRouter = './routes/progress.js';
 // Import routes
 const chatbotRoutes = require('./routes/chatbot');
 const dns = require('dns');
@@ -73,6 +74,7 @@ const upload = multer({
 // ROUTES
 // ============================================================================
 
+app.use('/api/progress', requireAuth, progressRouter); // your auth middleware first
 app.use('/api/coding',     require('./routes/coding'));
 app.use('/api/leaderboard',require('./routes/leaderboard'));
 

@@ -5,7 +5,7 @@ import {
   Trophy, Flame, Star, TrendingUp, TrendingDown,
   Minus, RefreshCw, ChevronRight, Zap, Crown, Medal,
   Users, Target, Clock, Info, X, CheckCircle2, BookOpen,
-  Filter, Search, ExternalLink, ChevronDown, ChevronUp,
+  Filter, Search, ExternalLink, ChevronDown, ChevronUp, Check,
 } from 'lucide-react';
 import { QUESTIONS } from '../data/questions.js';
 
@@ -45,6 +45,7 @@ interface User {
   email: string;
   name?: string;
   picture?: string;
+  college?: string;
 }
 
 interface TopicProgress {
@@ -71,6 +72,11 @@ interface LeaderboardEntry {
   topicProgress?: TopicProgress;
 }
 
+// Map: questionId -> { solved, starred }
+interface ProgressMap {
+  [questionId: string]: { solved: boolean; starred: boolean };
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = `
@@ -80,6 +86,8 @@ const styles = `
   @keyframes slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   @keyframes live-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
   @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+  @keyframes check-pop { 0% { transform: scale(0.6); opacity:0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity:1; } }
+  @keyframes score-flash { 0%,100% { color: inherit; } 50% { color: #4ade80; } }
 
   .lb-root { min-height: 100vh; background: #080b12; color: white; padding: 88px 16px 80px; font-family: inherit; }
   @media(min-width:640px) { .lb-root { padding: 88px 32px 80px; } }
@@ -139,6 +147,7 @@ const styles = `
   .q-row { transition: background 0.15s; border-bottom: 1px solid #1a1f2e; }
   .q-row:last-child { border-bottom: none; }
   .q-row:hover { background: rgba(255,255,255,0.018); }
+  .q-row.solved-row { background: rgba(74,222,128,0.025); }
 
   .list-tag { font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
   .list-nc   { background: rgba(167,139,250,0.12); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
@@ -156,6 +165,24 @@ const styles = `
   .approach-text { font-size: 11px; color: #4b5563; font-family: 'Courier New', monospace; margin-top: 2px; }
 
   .section-divider { border: none; border-top: 1px solid #1a1f2e; margin: 32px 0; }
+
+  /* Checkbox styles */
+  .q-checkbox {
+    width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #2a2f3e;
+    background: transparent; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .q-checkbox:hover { border-color: #4ade80; background: rgba(74,222,128,0.06); }
+  .q-checkbox.checked { background: rgba(74,222,128,0.15); border-color: #4ade80; animation: check-pop 0.25s ease; }
+
+  .star-btn { background: none; border: none; cursor: pointer; padding: 2px; color: #374151; transition: all 0.15s; display: flex; align-items: center; }
+  .star-btn:hover { color: #facc15; transform: scale(1.15); }
+  .star-btn.starred { color: #facc15; }
+
+  .progress-summary { display: flex; gap: 8px; align-items: center; padding: 10px 16px; background: #0b0e17; border-bottom: 1px solid #1a1f2e; }
+
+  .saving-indicator { width: 6px; height: 6px; border-radius: 50%; background: #facc15; animation: live-dot 0.8s infinite; }
+  .saved-indicator  { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
 `;
 
 // ─── Score Calculator ─────────────────────────────────────────────────────────
@@ -238,7 +265,7 @@ const PolicyModal = ({ onClose }: { onClose: () => void }) => (
         </div>
         <button onClick={onClose} className="text-gray-600 hover:text-white transition"><X size={16} /></button>
       </div>
-      <p className="text-gray-500 text-xs mb-4">Scores are computed from your Coding Tracker data and refresh every 60 seconds.</p>
+      <p className="text-gray-500 text-xs mb-4">Scores are computed from your ticked questions and refresh every 60 seconds.</p>
       <div className="space-y-2 mb-5">
         {[
           { label: 'Easy Question',   pts: `+${SCORE_POLICY.easy}`,   color: 'text-green-400',  icon: '🟢' },
@@ -364,11 +391,19 @@ const TopicProgressRow = ({ entry }: { entry: LeaderboardEntry }) => {
 
 const LIST_LABEL: Record<string, string> = { nc: 'NeetCode', lc75: 'LC 75', lc150: 'LC 150', apna: 'Apna', striver: 'Striver' };
 
-const QuestionBankSection = () => {
+interface QuestionBankProps {
+  user: User;
+  progressMap: ProgressMap;
+  onProgressChange: (questionId: string, type: 'solved' | 'starred', value: boolean) => void;
+  savingIds: Set<string>;
+}
+
+const QuestionBankSection = ({ user, progressMap, onProgressChange, savingIds }: QuestionBankProps) => {
   const [qSearch, setQSearch]           = useState('');
   const [qDiff, setQDiff]               = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
   const [qTopic, setQTopic]             = useState<string>('all');
   const [qList, setQList]               = useState<string>('all');
+  const [showOnlySolved, setShowOnlySolved] = useState(false);
   const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
 
   const toggleTopic = (t: string) =>
@@ -378,6 +413,7 @@ const QuestionBankSection = () => {
     if (qDiff !== 'all' && q.diff !== qDiff) return false;
     if (qTopic !== 'all' && q.topic !== qTopic) return false;
     if (qList !== 'all' && !q.lists.includes(qList)) return false;
+    if (showOnlySolved && !progressMap[q.id]?.solved) return false;
     if (qSearch) {
       const s = qSearch.toLowerCase();
       return q.name.toLowerCase().includes(s) || q.topic.toLowerCase().includes(s) || String(q.num).includes(s);
@@ -393,6 +429,7 @@ const QuestionBankSection = () => {
   }, {} as Record<string, typeof QUESTIONS>);
 
   const totalFiltered = filtered.length;
+  const totalSolved   = Object.values(progressMap).filter(p => p.solved).length;
 
   return (
     <div className="mt-8">
@@ -404,12 +441,20 @@ const QuestionBankSection = () => {
             Question Bank
           </h2>
           <p className="text-gray-500 text-sm mt-0.5">
-            {totalFiltered} question{totalFiltered !== 1 ? 's' : ''} · {TOPIC_ORDER.length} topics
+            <span className="text-green-400 font-semibold">{totalSolved}</span>
+            <span className="text-gray-600">/{TOTAL_QUESTIONS} solved</span>
+            &nbsp;·&nbsp;{TOPIC_ORDER.length} topics
+            &nbsp;·&nbsp;Tick a question to save progress & update your score
           </p>
         </div>
 
-        {/* Collapse all / expand all */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setShowOnlySolved(v => !v)}
+            className={`text-xs border px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${showOnlySolved ? 'border-green-500/40 text-green-400 bg-green-500/10' : 'text-gray-500 border-gray-800 hover:text-gray-300'}`}
+          >
+            <CheckCircle2 size={12} /> Solved only
+          </button>
           <button
             onClick={() => setCollapsedTopics(new Set(TOPIC_ORDER))}
             className="text-xs text-gray-500 hover:text-gray-300 border border-gray-800 px-3 py-1.5 rounded-lg transition"
@@ -427,7 +472,6 @@ const QuestionBankSection = () => {
 
       {/* Filters row */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
-        {/* Difficulty */}
         <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
           {(['all', 'easy', 'medium', 'hard'] as const).map(d => (
             <button key={d} onClick={() => setQDiff(d)} className={`tab-btn ${qDiff === d ? 'active' : ''}`}>
@@ -436,7 +480,6 @@ const QuestionBankSection = () => {
           ))}
         </div>
 
-        {/* List filter */}
         <div className="flex gap-1 bg-[#0f1117] border border-gray-800 rounded-xl p-1">
           {(['all', 'nc', 'lc75', 'lc150', 'striver', 'apna'] as const).map(l => (
             <button key={l} onClick={() => setQList(l)} className={`tab-btn ${qList === l ? 'active' : ''}`}>
@@ -486,15 +529,21 @@ const QuestionBankSection = () => {
           {Object.entries(grouped).map(([topic, qs]) => {
             const isCollapsed = collapsedTopics.has(topic);
             const bank = QUESTION_BANK[topic];
-            const easyCount   = qs.filter(q => q.diff === 'easy').length;
-            const mediumCount = qs.filter(q => q.diff === 'medium').length;
-            const hardCount   = qs.filter(q => q.diff === 'hard').length;
+            const easyCount    = qs.filter(q => q.diff === 'easy').length;
+            const mediumCount  = qs.filter(q => q.diff === 'medium').length;
+            const hardCount    = qs.filter(q => q.diff === 'hard').length;
+            const solvedInView = qs.filter(q => progressMap[q.id]?.solved).length;
+
+            // topic-level progress bar
+            const allTopicQs   = QUESTIONS.filter(q => q.topic === topic);
+            const topicSolved  = allTopicQs.filter(q => progressMap[q.id]?.solved).length;
+            const topicPct     = bank ? Math.round((topicSolved / bank.total) * 100) : 0;
 
             return (
               <div key={topic}>
                 {/* Topic header */}
                 <div className="topic-section-header flex items-center justify-between" onClick={() => toggleTopic(topic)}>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-white text-sm font-semibold">{topic}</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-green-500 text-[10px] font-medium">{easyCount}E</span>
@@ -502,45 +551,93 @@ const QuestionBankSection = () => {
                       <span className="text-red-500 text-[10px] font-medium">{hardCount}H</span>
                       <span className="text-gray-600 text-[10px]">· {qs.length}/{bank?.total ?? 0} shown</span>
                     </div>
+                    {/* topic progress inline */}
+                    <div className="hidden sm:flex items-center gap-2 ml-2">
+                      <div className="w-24 h-1.5 bg-[#1a1f2e] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${topicPct}%`, background: topicPct >= 80 ? '#4ade80' : topicPct >= 50 ? '#facc15' : '#60a5fa' }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-600">{topicSolved}/{bank?.total ?? 0}</span>
+                    </div>
                   </div>
                   {isCollapsed
-                    ? <ChevronDown size={14} className="text-gray-600" />
-                    : <ChevronUp size={14} className="text-gray-600" />
+                    ? <ChevronDown size={14} className="text-gray-600 flex-shrink-0" />
+                    : <ChevronUp size={14} className="text-gray-600 flex-shrink-0" />
                   }
                 </div>
 
                 {/* Questions list */}
                 {!isCollapsed && (
                   <div>
-                    {qs.map((q, idx) => (
-                      <div key={q.id} className="q-row px-4 py-3 flex items-start gap-3" style={{ animationDelay: `${idx * 10}ms` }}>
-                        {/* Number */}
-                        <span className="text-gray-700 text-[11px] font-mono w-10 flex-shrink-0 pt-0.5 text-right">
-                          {typeof q.num === 'number' ? q.num : '—'}
-                        </span>
+                    {qs.map((q, idx) => {
+                      const isSolved  = !!progressMap[q.id]?.solved;
+                      const isStarred = !!progressMap[q.id]?.starred;
+                      const isSaving  = savingIds.has(q.id);
 
-                        {/* Main content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <a href={q.link} target="_blank" rel="noopener noreferrer" className="q-link">
-                              {q.name}
-                              <ExternalLink size={10} />
-                            </a>
-                            <span className={`diff-${q.diff}`}>{q.diff}</span>
-                            {/* List tags */}
-                            <div className="flex gap-1 flex-wrap">
-                              {q.lists.map(l => (
-                                <span key={l} className={`list-tag list-${l}`}>{LIST_LABEL[l] ?? l}</span>
-                              ))}
+                      return (
+                        <div
+                          key={q.id}
+                          className={`q-row px-4 py-3 flex items-start gap-3 ${isSolved ? 'solved-row' : ''}`}
+                          style={{ animationDelay: `${idx * 10}ms` }}
+                        >
+                          {/* Checkbox */}
+                          <button
+                            className={`q-checkbox mt-0.5 ${isSolved ? 'checked' : ''}`}
+                            onClick={() => onProgressChange(q.id, 'solved', !isSolved)}
+                            disabled={isSaving}
+                            title={isSolved ? 'Mark unsolved' : 'Mark solved'}
+                            aria-label={isSolved ? 'Mark unsolved' : 'Mark solved'}
+                          >
+                            {isSaving
+                              ? <div className="saving-indicator" />
+                              : isSolved
+                                ? <Check size={11} className="text-green-400" />
+                                : null
+                            }
+                          </button>
+
+                          {/* Number */}
+                          <span className="text-gray-700 text-[11px] font-mono w-10 flex-shrink-0 pt-0.5 text-right">
+                            {typeof q.num === 'number' ? q.num : '—'}
+                          </span>
+
+                          {/* Main content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <a
+                                href={q.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`q-link ${isSolved ? 'opacity-50 line-through decoration-green-500/40' : ''}`}
+                              >
+                                {q.name}
+                                <ExternalLink size={10} />
+                              </a>
+                              <span className={`diff-${q.diff}`}>{q.diff}</span>
+                              <div className="flex gap-1 flex-wrap">
+                                {q.lists.map(l => (
+                                  <span key={l} className={`list-tag list-${l}`}>{LIST_LABEL[l] ?? l}</span>
+                                ))}
+                              </div>
                             </div>
+                            {q.approach && (
+                              <p className="approach-text truncate max-w-xl">{q.approach}</p>
+                            )}
                           </div>
-                          {/* Approach hint */}
-                          {q.approach && (
-                            <p className="approach-text truncate max-w-xl">{q.approach}</p>
-                          )}
+
+                          {/* Star button */}
+                          <button
+                            className={`star-btn ${isStarred ? 'starred' : ''}`}
+                            onClick={() => onProgressChange(q.id, 'starred', !isStarred)}
+                            disabled={isSaving}
+                            title={isStarred ? 'Unstar' : 'Star for review'}
+                          >
+                            <Star size={13} fill={isStarred ? 'currentColor' : 'none'} />
+                          </button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -555,22 +652,99 @@ const QuestionBankSection = () => {
 // ─── MAIN LEADERBOARD ─────────────────────────────────────────────────────────
 
 function Leaderboard({ user }: { user: User }) {
-  const [entries, setEntries]         = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [showPolicy, setShowPolicy]   = useState(false);
-  const [filter, setFilter]           = useState<'all' | 'college' | 'weekly'>('all');
-  const [diffFilter, setDiffFilter]   = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
-  const [topicFilter, setTopicFilter] = useState<string>('all');
-  const [search, setSearch]           = useState('');
-  const [countdown, setCountdown]     = useState(60);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [entries, setEntries]           = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [lastUpdated, setLastUpdated]   = useState<Date | null>(null);
+  const [showPolicy, setShowPolicy]     = useState(false);
+  const [filter, setFilter]             = useState<'all' | 'college' | 'weekly'>('all');
+  const [diffFilter, setDiffFilter]     = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [topicFilter, setTopicFilter]   = useState<string>('all');
+  const [search, setSearch]             = useState('');
+  const [countdown, setCountdown]       = useState(60);
+  const [expandedRow, setExpandedRow]   = useState<string | null>(null);
 
-  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Progress state
+  const [progressMap, setProgressMap]   = useState<ProgressMap>({});
+  const [savingIds, setSavingIds]       = useState<Set<string>>(new Set());
+  const [progressLoading, setProgressLoading] = useState(true);
+
+  const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevEntriesRef = useRef<LeaderboardEntry[]>([]);
 
+  // ── Fetch my progress from backend ────────────────────────────────────────
+  const fetchMyProgress = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/progress/me`, { credentials: 'include' });
+      if (res.ok) {
+        const records: Array<{ questionId: string; solved: boolean; starred: boolean }> = await res.json();
+        const map: ProgressMap = {};
+        for (const r of records) {
+          map[r.questionId] = { solved: r.solved, starred: r.starred };
+        }
+        setProgressMap(map);
+      }
+    } catch (err) {
+      console.error('progress/me fetch error:', err);
+    } finally {
+      setProgressLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchMyProgress(); }, [fetchMyProgress]);
+
+  // ── Toggle solved / star → POST to backend ────────────────────────────────
+  const handleProgressChange = useCallback(async (
+    questionId: string,
+    type: 'solved' | 'starred',
+    value: boolean
+  ) => {
+    // Optimistic update
+    setProgressMap(prev => ({
+      ...prev,
+      [questionId]: { ...prev[questionId], [type]: value },
+    }));
+    setSavingIds(prev => new Set(prev).add(questionId));
+
+    try {
+      const q = QUESTIONS.find(x => x.id === questionId);
+      if (!q) return;
+
+      const endpoint = type === 'solved' ? 'toggle' : 'star';
+      const body = {
+        questionId,
+        questionName: q.name,
+        topic:        q.topic,
+        diff:         q.diff,
+        lists:        q.lists,
+        [type]:       value,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/progress/${endpoint}`, {
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Content-Type': 'application/json' },
+        body:        JSON.stringify(body),
+      });
+
+      if (!res.ok) throw new Error('Save failed');
+
+      // Trigger leaderboard refresh after a short delay so backend aggregation settles
+      setTimeout(() => fetchLeaderboard(false), 800);
+    } catch (err) {
+      console.error('progress save error:', err);
+      // Rollback optimistic update
+      setProgressMap(prev => ({
+        ...prev,
+        [questionId]: { ...prev[questionId], [type]: !value },
+      }));
+    } finally {
+      setSavingIds(prev => { const s = new Set(prev); s.delete(questionId); return s; });
+    }
+  }, []);
+
+  // ── Fetch leaderboard ──────────────────────────────────────────────────────
   const fetchLeaderboard = useCallback(async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true);
     try {
@@ -578,7 +752,7 @@ function Leaderboard({ user }: { user: User }) {
       if (diffFilter !== 'all') params.append('diff', diffFilter);
       if (topicFilter !== 'all') params.append('topic', topicFilter);
 
-      const res = await fetch(`${API_BASE_URL}/api/leaderboard?${params}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE_URL}/api/progress/leaderboard?${params}`, { credentials: 'include' });
       if (res.ok) {
         const data: LeaderboardEntry[] = await res.json();
         const prev = prevEntriesRef.current;
@@ -614,6 +788,14 @@ function Leaderboard({ user }: { user: User }) {
   const myEntry  = entries.find(e => e.userId === user.id);
   const maxScore = entries[0]?.totalScore ?? 1;
   const top3     = entries.slice(0, 3);
+
+  // Local solved count from progressMap for instant feedback
+  const localSolved   = Object.values(progressMap).filter(p => p.solved).length;
+  const localEasy     = QUESTIONS.filter(q => progressMap[q.id]?.solved && q.diff === 'easy').length;
+  const localMedium   = QUESTIONS.filter(q => progressMap[q.id]?.solved && q.diff === 'medium').length;
+  const localHard     = QUESTIONS.filter(q => progressMap[q.id]?.solved && q.diff === 'hard').length;
+  const localStarred  = Object.values(progressMap).filter(p => p.starred).length;
+  const localScore    = localEasy * SCORE_POLICY.easy + localMedium * SCORE_POLICY.medium + localHard * SCORE_POLICY.hard + localStarred * SCORE_POLICY.starBonus;
 
   return (
     <div className="lb-root">
@@ -665,10 +847,10 @@ function Leaderboard({ user }: { user: User }) {
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Total Coders',  value: entries.length,                  icon: Users,  color: 'text-blue-400'   },
-          { label: 'Your Rank',     value: myEntry ? `#${myEntry.rank}` : '—', icon: Trophy, color: 'text-yellow-400' },
-          { label: 'Your Score',    value: myEntry?.totalScore ?? 0,        icon: Zap,    color: 'text-purple-400' },
-          { label: 'Next Refresh',  value: `${countdown}s`,                 icon: Clock,  color: 'text-green-400'  },
+          { label: 'Total Coders',  value: entries.length,                               icon: Users,  color: 'text-blue-400'   },
+          { label: 'Your Rank',     value: myEntry ? `#${myEntry.rank}` : '—',           icon: Trophy, color: 'text-yellow-400' },
+          { label: 'Your Score',    value: localScore,                                   icon: Zap,    color: 'text-purple-400' },
+          { label: 'Next Refresh',  value: `${countdown}s`,                              icon: Clock,  color: 'text-green-400'  },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="lb-card flex items-center gap-3">
             <div className={`w-8 h-8 rounded-xl bg-gray-800 border border-gray-800 flex items-center justify-center ${color} flex-shrink-0`}>
@@ -682,52 +864,55 @@ function Leaderboard({ user }: { user: User }) {
         ))}
       </div>
 
-      {/* My solved summary */}
-      {myEntry && (
-        <div className="lb-card mb-5 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={myEntry.name} picture={myEntry.picture} size="md" />
-            <div>
-              <p className="text-white font-semibold text-sm">{myEntry.name}</p>
-              <p className="text-gray-500 text-[11px]">{myEntry.email}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="text-center">
-              <p className="text-green-400 font-bold text-base">{myEntry.easySolved}</p>
-              <p className="text-gray-600 text-[10px]">Easy</p>
-            </div>
-            <div className="text-center">
-              <p className="text-yellow-400 font-bold text-base">{myEntry.mediumSolved}</p>
-              <p className="text-gray-600 text-[10px]">Medium</p>
-            </div>
-            <div className="text-center">
-              <p className="text-red-400 font-bold text-base">{myEntry.hardSolved}</p>
-              <p className="text-gray-600 text-[10px]">Hard</p>
-            </div>
-            <div className="text-center">
-              <p className="text-white font-bold text-base">{myEntry.totalSolved}/{TOTAL_QUESTIONS}</p>
-              <p className="text-gray-600 text-[10px]">Total Solved</p>
-            </div>
-            {myEntry.streak > 0 && (
-              <div className="text-center">
-                <p className="text-orange-400 font-bold text-base flex items-center gap-1">
-                  <Flame size={13} />{myEntry.streak}d
-                </p>
-                <p className="text-gray-600 text-[10px]">Streak</p>
-              </div>
-            )}
-            {myEntry.starredCount > 0 && (
-              <div className="text-center">
-                <p className="text-yellow-400 font-bold text-base flex items-center gap-1">
-                  <Star size={13} />{myEntry.starredCount}
-                </p>
-                <p className="text-gray-600 text-[10px]">Starred</p>
-              </div>
-            )}
+      {/* My solved summary — uses live local counts for instant feedback */}
+      <div className="lb-card mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={user.name || user.email} picture={user.picture} size="md" />
+          <div>
+            <p className="text-white font-semibold text-sm">{user.name || user.email}</p>
+            <p className="text-gray-500 text-[11px]">{user.email}</p>
           </div>
         </div>
-      )}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="text-center">
+            <p className="text-green-400 font-bold text-base">{localEasy}</p>
+            <p className="text-gray-600 text-[10px]">Easy</p>
+          </div>
+          <div className="text-center">
+            <p className="text-yellow-400 font-bold text-base">{localMedium}</p>
+            <p className="text-gray-600 text-[10px]">Medium</p>
+          </div>
+          <div className="text-center">
+            <p className="text-red-400 font-bold text-base">{localHard}</p>
+            <p className="text-gray-600 text-[10px]">Hard</p>
+          </div>
+          <div className="text-center">
+            <p className="text-white font-bold text-base">{localSolved}/{TOTAL_QUESTIONS}</p>
+            <p className="text-gray-600 text-[10px]">Total Solved</p>
+          </div>
+          {(myEntry?.streak ?? 0) > 0 && (
+            <div className="text-center">
+              <p className="text-orange-400 font-bold text-base flex items-center gap-1">
+                <Flame size={13} />{myEntry!.streak}d
+              </p>
+              <p className="text-gray-600 text-[10px]">Streak</p>
+            </div>
+          )}
+          {localStarred > 0 && (
+            <div className="text-center">
+              <p className="text-yellow-400 font-bold text-base flex items-center gap-1">
+                <Star size={13} />{localStarred}
+              </p>
+              <p className="text-gray-600 text-[10px]">Starred</p>
+            </div>
+          )}
+          {/* Score badge */}
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-1.5 text-center">
+            <p className="text-purple-300 font-bold text-base">{localScore}</p>
+            <p className="text-gray-600 text-[10px]">pts (local)</p>
+          </div>
+        </div>
+      </div>
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">
@@ -811,6 +996,9 @@ function Leaderboard({ user }: { user: User }) {
               const scoreWidth = `${Math.round((entry.totalScore / maxScore) * 100)}%`;
               const barColor   = entry.rank === 1 ? '#facc15' : entry.rank === 2 ? '#94a3b8' : entry.rank === 3 ? '#b45309' : isMe ? '#3b82f6' : '#374151';
 
+              // Use local score for "me" row so it updates instantly
+              const displayScore = isMe ? localScore : entry.totalScore;
+
               return (
                 <React.Fragment key={entry.userId}>
                   <div
@@ -837,19 +1025,19 @@ function Leaderboard({ user }: { user: User }) {
                       </div>
                     </div>
                     <div className="col-span-2 hidden sm:block text-right">
-                      <p className={`text-sm font-bold ${isTop ? 'text-white' : 'text-gray-300'}`}>{entry.totalScore}</p>
+                      <p className={`text-sm font-bold ${isTop ? 'text-white' : 'text-gray-300'}`}>{displayScore}</p>
                       <div className="h-1 bg-gray-800 rounded-full mt-1 overflow-hidden">
-                        <div className="h-full rounded-full score-bar-fill" style={{ width: scoreWidth, background: barColor }} />
+                        <div className="h-full rounded-full score-bar-fill" style={{ width: isMe ? `${Math.round((localScore / maxScore) * 100)}%` : scoreWidth, background: barColor }} />
                       </div>
                     </div>
                     <div className="col-span-2 hidden md:block text-right">
                       <p className="text-[11px] font-semibold text-gray-300">
-                        {entry.totalSolved}<span className="text-gray-600 font-normal">/{TOTAL_QUESTIONS}</span>
+                        {isMe ? localSolved : entry.totalSolved}<span className="text-gray-600 font-normal">/{TOTAL_QUESTIONS}</span>
                       </p>
                       <p className="text-[10px] text-gray-600">
-                        <span className="text-green-500">{entry.easySolved}E</span>{' '}
-                        <span className="text-yellow-500">{entry.mediumSolved}M</span>{' '}
-                        <span className="text-red-500">{entry.hardSolved}H</span>
+                        <span className="text-green-500">{isMe ? localEasy : entry.easySolved}E</span>{' '}
+                        <span className="text-yellow-500">{isMe ? localMedium : entry.mediumSolved}M</span>{' '}
+                        <span className="text-red-500">{isMe ? localHard : entry.hardSolved}H</span>
                       </p>
                     </div>
                     <div className="col-span-2 hidden lg:flex items-center justify-end gap-1">
@@ -883,7 +1071,14 @@ function Leaderboard({ user }: { user: User }) {
 
       {/* ─── QUESTION BANK ─── */}
       <hr className="section-divider" />
-      <QuestionBankSection />
+      {!progressLoading && (
+        <QuestionBankSection
+          user={user}
+          progressMap={progressMap}
+          onProgressChange={handleProgressChange}
+          savingIds={savingIds}
+        />
+      )}
     </div>
   );
 }
