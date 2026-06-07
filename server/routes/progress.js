@@ -1,5 +1,5 @@
 const express = require('express');
-const Progress = require('../models/Progress');
+const Progress = require('../models/asdasas');
 
 const router = express.Router();
 
