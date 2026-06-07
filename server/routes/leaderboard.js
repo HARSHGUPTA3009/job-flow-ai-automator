@@ -40,7 +40,14 @@ async function computeStreak(userId) {
 router.post('/toggle', async (req, res) => {
   try {
     const { questionId, questionName, topic, diff, lists = [], solved } = req.body;
-    const { id: userId, email, name = '', picture = '', college = '' } = req.user;
+    const userId = req.user._id?.toString() || req.user.googleId;
+
+    const {
+      email,
+      name = '',
+      picture = '',
+      college = ''
+    } = req.user;
 
     if (!questionId || !topic || !diff) {
       return res.status(400).json({ error: 'questionId, topic, diff are required' });
@@ -73,7 +80,14 @@ router.post('/toggle', async (req, res) => {
 router.post('/star', async (req, res) => {
   try {
     const { questionId, questionName, topic, diff, lists = [], starred } = req.body;
-    const { id: userId, email, name = '', picture = '', college = '' } = req.user;
+    const userId = req.user._id?.toString() || req.user.googleId;
+
+    const {
+      email,
+      name = '',
+      picture = '',
+      college = ''
+    } = req.user;
 
     const doc = await Progress.findOneAndUpdate(
       { userId, questionId },
@@ -98,7 +112,7 @@ router.post('/star', async (req, res) => {
 // Returns all progress records for the logged-in user.
 router.get('/me', async (req, res) => {
   try {
-    const { id: userId } = req.user;
+   const userId = req.user._id?.toString() || req.user.googleId;
     const records = await Progress.find({ userId }).lean();
     res.json(records);
   } catch (err) {
