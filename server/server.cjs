@@ -365,13 +365,10 @@ const CompanyDrive           = mongoose.model('CompanyDrive',          CompanyDr
 // OTHER ROUTES
 // ============================================================================
 
-app.use('/gmail',        require('./routes/gmail'));
+
 app.use('/auth',         require('./routes/auth'));
 app.use('/api',          require('./routes/api'));
 
-const jobRoutes     = require('./routes/jobs');
-const companyRoutes = require('./routes/companies');
-const { initCron }  = require('./cron/jobScraper.cron');
 
 
 // ============================================================================
