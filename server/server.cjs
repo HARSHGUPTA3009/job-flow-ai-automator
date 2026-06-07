@@ -9,7 +9,7 @@ const redis = require('./config/redis');
 const rateLimiter = require('./middleware/rateLimiter');
 require('dotenv').config();
 const { getKey } = require('./config/groqPool');
-const progressRouter = './routes/progress.js';
+const progressRoutes = require('./routes/progress');
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 const app = express();
