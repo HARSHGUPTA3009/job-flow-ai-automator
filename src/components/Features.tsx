@@ -3,39 +3,37 @@ import { Card } from "@/components/ui/card";
 
 export const Features = () => {
   const features = [
-    {
-      title: "AI-Powered Applications",
-      description: "Generate personalized cover letters and optimize your applications using advanced AI technology.",
-      icon: "🤖"
-    },
-    {
-      title: "Resume Analysis",
-      description: "Get ATS-friendly score analysis and optimization suggestions for your resume.",
-      icon: "📄"
-    },
-    {
-      title: "Job Matching",
-      description: "Find relevant job opportunities automatically using intelligent matching algorithms.",
-      icon: "🎯"
-    },
-    {
-      title: "Email Automation",
-      description: "Send personalized follow-up emails and cold outreach messages automatically.",
-      icon: "📧"
-    },
-    {
-      title: "Real-time Analytics",
-      description: "Track application status, response rates, and optimize your job search strategy.",
-      icon: "📊"
-    },
-    {
-      title: "Workflow Integration",
-      description: "Seamlessly integrate with your existing tools through n8n automation workflows.",
-      icon: "🔗"
-    },
-    
-  ];
-
+  {
+    title: "JD-Based ATS Scoring",
+    description: "Evaluate resumes against job descriptions using AI-powered ATS analysis with detailed improvement recommendations.",
+    icon: "📄"
+  },
+  {
+    title: "Smart Job Tracking",
+    description: "Manage applications across multiple stages with a centralized dashboard for seamless job search organization.",
+    icon: "🎯"
+  },
+  {
+    title: "Real-Time Leaderboard",
+    description: "Track rankings live through WebSockets and Redis-backed synchronization, keeping users engaged and competitive.",
+    icon: "🏆"
+  },
+  {
+    title: "AI Cover Letter Generation",
+    description: "Generate tailored cover letters based on job requirements to improve application quality and relevance.",
+    icon: "✍️"
+  },
+  {
+    title: "Distributed Processing",
+    description: "Process ATS analyses asynchronously using Redis and BullMQ, ensuring fast and reliable performance under load.",
+    icon: "⚡"
+  },
+  {
+    title: "Application Analytics",
+    description: "Gain insights into ATS scores, application progress, and job search performance through interactive analytics.",
+    icon: "📊"
+  }
+];
   return (
     <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">

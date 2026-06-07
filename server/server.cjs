@@ -99,151 +99,123 @@ function cleanResumeText(text) {
     .trim();
 }
 
-app.post(
-  '/ai/ats-upload',
-  rateLimiter,
-  upload.single('file'),
-  async (req, res) => {
+// Fixed: axios.post takes exactly (url, data, config) — 3 args total
+// Broken original had 5 args
+
+app.post('/ai/ats-upload', rateLimiter, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'PDF or JS file required' });
+
+    let resumeText;
+
+    if (req.file.mimetype === 'application/pdf') {
+      const raw = await extractPdfText(req.file.buffer);
+      resumeText = cleanResumeText(raw);
+    } else {
+      // .js or plain text
+      resumeText = req.file.buffer.toString('utf-8');
+    }
+
+    if (resumeText.length < 200) {
+      return res.status(400).json({ error: 'Resume extraction failed. Try a clearer file.' });
+    }
+
+    // Cache check
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256').update(resumeText).digest('hex');
+    const cacheKey = `ats:${hash}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      console.log('⚡ ATS Cache HIT');
+      return res.json(JSON.parse(cached));
+    }
+    console.log('❌ ATS Cache MISS');
+
+    // Get key from sliding-window manager
+    let apiKey;
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'PDF file required' });
-      }
-
-      // ============================
-      // STEP 1: Extract + Clean
-      // ============================
-      let rawText = await extractPdfText(req.file.buffer);
-      let resumeText = cleanResumeText(rawText);
-
-      if (resumeText.length < 200) {
-        return res.status(400).json({
-          error: 'Resume extraction failed. Try a clearer PDF.'
-        });
-      }
-
-      // ============================
-      // STEP 2: CACHE CHECK
-      // ============================
-      const crypto = require('crypto');
-      const hash = crypto.createHash('sha256').update(resumeText).digest('hex');
-      const cacheKey = `ats:${hash}`;
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        console.log('⚡ ATS Cache HIT');
-        return res.json(JSON.parse(cached));
-      }
-
-      console.log('❌ ATS Cache MISS');
-
-      // ============================
-      // STEP 3: GROQ CALL (LOAD BALANCED)
-      // ============================
-      const apiKey = getKey();
-const aiResponse = await axios.post(
-  'https://api.groq.com/openai/v1/chat/completions',
-  payload,
-  {
-    timeout: 30000,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+      apiKey = await getKey();
+    } catch (e) {
+      return res.status(429).json({ error: 'Rate limit reached. Please try again in a minute.' });
     }
-  },
-  {
-    model: 'llama-3.1-8b-instant',
-    messages: [
-      {
-        role: 'system',
-        content: `
-You are an ATS evaluator.
 
-STRICT RULES:
-- Return ONLY valid JSON
-- Do NOT include any text before or after JSON
-- Do NOT use markdown
-- Do NOT explain anything
-- Score must be integer between 0-100
+    const payload = {
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: `
+You are a senior technical recruiter and ATS system evaluator at a top-tier tech company.
 
-Output format EXACTLY:
+Analyze the provided resume and return a structured ATS evaluation.
+
+SCORING CRITERIA (100 points total):
+- Quantified impact and metrics (20pts): numbers, percentages, scale
+- Technical keyword density (20pts): relevant tools, languages, frameworks
+- Action verb strength (15pts): built, architected, optimized vs "helped", "assisted"
+- Section structure (15pts): experience, education, skills, projects present
+- Clarity and conciseness (15pts): no fluff, no walls of text
+- ATS formatting compliance (15pts): no tables, no columns, no images
+
+STRICT OUTPUT RULES:
+- Return ONLY valid JSON. No markdown. No explanation. No preamble.
+- JSON must match this exact schema:
+
 {
-  "score": number,
-  "summary": string,
-  "suggestions": string[],
-  "detected_skills": string[]
+  "score": <integer 0-100>,
+  "summary": "<2-3 sentence honest assessment mentioning strongest and weakest areas>",
+  "suggestions": ["<specific actionable fix>", ...],
+  "detected_skills": ["<skill>", ...]
 }
-        `.trim()
-      },
+          `.trim()
+        },
+        {
+          role: 'user',
+          content: `Evaluate this resume:\n\n${resumeText.slice(0, 4000)}`
+        }
+      ],
+      temperature: 0,
+      max_tokens: 600,
+      response_format: { type: 'json_object' }
+    };
+
+    // FIXED: axios.post(url, data, config) — single config object
+    const aiResponse = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      payload,
       {
-        role: 'user',
-        content: resumeText.slice(0, 3000)
+        timeout: 30000,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
       }
-    ],
-    temperature: 0,
-    max_tokens: 400,
-    response_format: { type: "json_object" } 
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
+    );
+
+    const content = aiResponse?.data?.choices?.[0]?.message?.content;
+    if (!content) {
+      return res.status(500).json({ error: 'Invalid AI response', raw: aiResponse.data });
     }
-  }
-);
-      // ============================
-      // STEP 4: PARSE RESPONSE
-      // ============================
-     let content = aiResponse?.data?.choices?.[0]?.message?.content;
 
-if (!content) {
-  return res.status(500).json({
-    error: "Invalid AI response",
-    raw: aiResponse.data
-  });
-}
-
-let parsed;
-
-try {
-  parsed = JSON.parse(content);
-} catch (err) {
-  console.error("❌ JSON PARSE ERROR:", content);
-
-  return res.status(500).json({
-    error: "AI returned invalid JSON",
-    raw: content
-  });
-}
-
-      // ============================
-      // STEP 5: STORE IN CACHE
-      // ============================
-      await redis.set(cacheKey, JSON.stringify(parsed), 'EX', 3600); // 1 hour
-
-      // ============================
-      // STEP 6: RETURN RESPONSE
-      // ============================
-      res.json(parsed);
-
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
     } catch (err) {
-      console.error('ATS Upload Error:', err.response?.data || err.message);
-      res.status(500).json({
-        error: 'ATS processing failed',
-        details: err.response?.data || err.message
-      });
+      console.error('❌ JSON PARSE ERROR:', content);
+      return res.status(500).json({ error: 'AI returned invalid JSON', raw: content });
     }
+
+    await redis.set(cacheKey, JSON.stringify(parsed), 'EX', 3600);
+    res.json(parsed);
+
+  } catch (err) {
+    console.error('ATS Upload Error:', err.response?.data || err.message);
+    res.status(500).json({
+      error: 'ATS processing failed',
+      details: err.response?.data || err.message
+    });
   }
-); 
-// app.get('/ai/ats-status/:id', async (req, res) => {
-//   const atsQueue = require('./queues/atsQueue');
-
-//   const job = await atsQueue.getJob(req.params.id);
-//   const state = await job.getState();
-
-//   res.json({
-//     state,
-//     result: job.returnvalue || null
-//   });
-// });
+});
 app.post('/ai/cold-emails', async (req, res) => {
   try {
     const { userName, contacts } = req.body;
