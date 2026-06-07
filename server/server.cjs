@@ -74,7 +74,7 @@ const upload = multer({
 // ROUTES
 // ============================================================================
 
-app.use('/api/progress', requireAuth, progressRouter); // your auth middleware first
+app.use('/api/progress', './routes/progress'); 
 app.use('/api/coding',     require('./routes/coding'));
 app.use('/api/leaderboard',require('./routes/leaderboard'));
 
