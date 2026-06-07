@@ -20,7 +20,9 @@ if (cluster.isPrimary) {
   const { Queue } = require("bullmq");
   const IORedis = require("ioredis");
 
-  const redis = new IORedis({ maxRetriesPerRequest: null });
+  const redis = new IORedis(process.env.REDIS_URL, {
+  maxRetriesPerRequest: null,
+});
   const queue = new Queue("emailQueue", { connection: redis });
 
   const app = express();
