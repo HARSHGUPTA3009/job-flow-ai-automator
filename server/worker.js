@@ -2,6 +2,7 @@ const { Worker, QueueEvents } = require("bullmq");
 const IORedis = require("ioredis");
 
 const connection = new IORedis(process.env.REDIS_URL, {
+  tls: {},
   maxRetriesPerRequest: null,
 });
 

@@ -5,6 +5,7 @@ const axios = require('axios');
 const { getKey } = require('../config/groqPool');
 
 const connection = new IORedis(process.env.REDIS_URL, {
+  tls: {},
   maxRetriesPerRequest: null,
 })
 

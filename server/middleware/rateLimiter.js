@@ -3,6 +3,7 @@ const { RateLimiterRedis } = require('rate-limiter-flexible');
 const Redis = require('ioredis');
 
 const redis = new Redis(process.env.REDIS_URL, {
+  tls: {},
   maxRetriesPerRequest: null,
 });
 const limiter = new RateLimiterRedis({

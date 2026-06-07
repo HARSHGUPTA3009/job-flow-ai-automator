@@ -21,6 +21,7 @@ if (cluster.isPrimary) {
   const IORedis = require("ioredis");
 
   const redis = new IORedis(process.env.REDIS_URL, {
+    tls: {},
   maxRetriesPerRequest: null,
 });
   const queue = new Queue("emailQueue", { connection: redis });
