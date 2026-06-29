@@ -1,0 +1,84 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AutoJobFlow — Local Development Stack
+# Original server (v1):  port 3001
+# v2 Gateway:            port 3002
+# v2 Worker:             background process
+# Redis:                 port 6379
+# MongoDB:               port 27017
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ajf-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: ajf-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: autojobflow
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server-v2-gateway:
+    build:
+      context: ./server-v2
+      dockerfile: Dockerfile.dev
+    container_name: ajf-gateway-v2
+    ports:
+      - "3002:3002"
+    env_file: ./server/.env
+    environment:
+      PORT: "3002"
+      REDIS_URL: redis://redis:6379
+      MONGODB_URI: mongodb://mongodb:27017/autojobflow
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./server-v2/src:/app/src
+    command: npm run dev
+
+  server-v2-worker:
+    build:
+      context: ./server-v2
+      dockerfile: Dockerfile.dev
+    container_name: ajf-worker-v2
+    env_file: ./server/.env
+    environment:
+      PORT: "3003"
+      REDIS_URL: redis://redis:6379
+      MONGODB_URI: mongodb://mongodb:27017/autojobflow
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./server-v2/src:/app/src
+    command: npm run dev:worker
+
+volumes:
+  redis_data:
+  mongo_data:

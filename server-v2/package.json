@@ -1,0 +1,43 @@
+{
+  "name": "autojobflow-server-v2",
+  "version": "2.0.0",
+  "description": "AutoJobFlow v2 — Production-grade distributed backend gateway",
+  "main": "dist/gateway/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only --exit-child src/gateway/index.ts",
+    "dev:worker": "ts-node-dev --respawn --transpile-only --exit-child src/workers/index.ts",
+    "start": "node dist/gateway/index.js",
+    "start:worker": "node dist/workers/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "bullmq": "^5.8.0",
+    "compression": "^1.7.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "multer": "1.4.5-lts.2",
+    "pdf-parse": "^1.1.1",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.1",
+    "socket.io": "^4.7.5",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.2",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/uuid": "^10.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}
