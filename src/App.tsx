@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-
+import AuthSuccess from "@/pages/AuthSuccess";
 import Index from "@/pages/Index";
 import SignIn from "@/pages/SignIn";
 import Dashboard from "@/pages/Dashboard";
@@ -83,9 +83,10 @@ const App = () => {
         <BrowserRouter>
           <Navigation user={user} onLogout={() => setUser(null)} />
           <Routes>
+            
             <Route path="/"            element={<Index />} />
             <Route path="/signin"      element={user ? <Navigate to="/dashboard" replace /> : <SignIn />} />
-            <Route path="/dashboard"   element={guard(<Dashboard   user={user!} />)} />
+            <Route path="/dashboard"   element={<Dashboard />}/>
             <Route path="/placements"  element={guard(<Placements  user={user!} />)} />
             <Route path="/leaderboard" element={guard(<Leaderboard user={user!} />)} />
             <Route path="*"            element={<NotFound />} />
